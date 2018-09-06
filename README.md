@@ -5,3 +5,49 @@ beetleX是基于dotnet core实现的轻量级高性能的TCP通讯组件，其�
 
 ### 以下是PipeStream的结构
 ![PipeStream](https://github.com/IKende/BeetleX/blob/master/PipeStream.png) 
+
+### 构建TCP Server
+```
+    class Program : ServerHandlerBase
+    {
+        private static IServer server;
+        public static void Main(string[] args)
+        {
+            NetConfig config = new NetConfig();
+            server = SocketFactory.CreateTcpServer<Program>(config);
+            server.Open();
+            Console.Write(server);
+            Console.Read();
+        }
+        public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
+        {
+            string name = e.Reader.ReadLine();
+            Console.WriteLine(name);
+            var w = e.Session.NetStream;
+            w.WriteLine("hello " + name);
+            w.Flush();
+            base.SessionReceive(server, e);
+        }
+    }
+```
+### 构建TCP Client
+```
+class Program
+    {
+        static void Main(string[] args)
+        {
+            TcpClient client = SocketFactory.CreateTcpClient<TcpClient>("127.0.0.1", 9090);
+            while (true)
+            {
+                Console.Write("Enter Name:");
+                var line = Console.ReadLine();
+                client.NetStream.WriteLine(line);
+                client.NetStream.Flush();
+                var reader = client.Read();
+                line = reader.ReadLine();
+                Console.WriteLine(line);
+            }
+            Console.WriteLine("Hello World!");
+        }
+    }
+```
