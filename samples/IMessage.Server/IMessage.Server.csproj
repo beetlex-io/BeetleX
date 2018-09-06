@@ -10,21 +10,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\BeetleX\BeetleX.csproj" />
+    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Update="Datas.Designer.cs">
-      <DependentUpon>Datas.resx</DependentUpon>
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
+      <DependentUpon>Datas.resx</DependentUpon>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Update="Datas.resx">
-      <LastGenOutput>Datas.Designer.cs</LastGenOutput>
       <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Datas.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
 

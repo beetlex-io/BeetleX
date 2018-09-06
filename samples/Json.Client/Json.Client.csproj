@@ -6,8 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Protobuf.Messages\Protobuf.Messages.csproj" />
-    <ProjectReference Include="..\src\BeetleX\BeetleX.csproj" />
+    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
+    <ProjectReference Include="..\Json.Message\Json.Messages.csproj" />
   </ItemGroup>
 
 </Project>

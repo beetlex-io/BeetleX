@@ -6,11 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\IMessage.Server\Messages.cs" Link="Messages.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\src\BeetleX\BeetleX.csproj" />
+    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
+    <ProjectReference Include="..\Protobuf.Messages\Protobuf.Messages.csproj" />
   </ItemGroup>
 
 </Project>
