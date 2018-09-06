@@ -2,3 +2,6 @@
 beetleX是基于dotnet core实现的轻量级高性能的TCP通讯组件，其高性能和简便的使用方式可以快速低成地构建性能出色的TCP通讯服务程序！其高效和简便之处归功于BeetleX内部一个的PipeStream数据流处理器,PipeStream可以说是MemoryStream,NetworkStream和SocketAsyncEventArgs的一个结合体；它不仅提供了基于Stream标准操作的便利性，并且在读写上直接基于SocketAsyncEventArgs Buffer Pool作为载体，由于基于Buffer Pool作为内存块所以不存在类似于MemoryStream扩容构建内存和复制内存的问题；基于SocketAsyncEventArgs模型网络读写， 因此以在网络操作性能上高于传统的NetworkStream操作。
 
 组件除了PipeStream外，还在其上层提供了一套IBinaryReader和IBinaryWriter读写规范，在这规范的基础之上进行数据协议分析和处理基本可以实现内存数据零拷贝，这对于在编写一些高并发的服务时将大大降低了内存复制的开销让性能更出色。
+
+### 以下是PipeStream的结构
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/PipeStream.png) 
