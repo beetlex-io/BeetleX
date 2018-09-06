@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Chat.Server\ChatParse.cs" Link="ChatParse.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\BeetleX\BeetleX.csproj" />
+  </ItemGroup>
+
+</Project>
