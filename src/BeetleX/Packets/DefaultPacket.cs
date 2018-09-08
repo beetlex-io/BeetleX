@@ -7,8 +7,6 @@ using BeetleX.Clients;
 using BeetleX.EventArgs;
 using System.Reflection;
 using System.Collections;
-using System.IO;
-using System.Text;
 
 namespace BeetleX.Packets
 {
@@ -107,9 +105,9 @@ namespace BeetleX.Packets
                 }
         }
 
-        public Type ReadType(PipeStream stream)
+        public Type ReadType(IBinaryReader reader)
         {
-            string typeName = stream.ReadShortUTF();
+            string typeName = reader.ReadShortUTF();
             TypeMapper mapper = GetMapper(typeName);
             if (mapper == null)
                 throw new BXException("{0} type not registed!", typeName);
@@ -123,13 +121,12 @@ namespace BeetleX.Packets
             }
         }
 
-        public void WriteType(object data, PipeStream stream)
+        public void WriteType(object data, IBinaryWriter writer)
         {
             TypeMapper mapper = GetMapper(data);
             if (mapper == null)
                 throw new BXException("{0} type not registed!", data.GetType());
-            stream.WriteShortUTF(mapper.Name);
-
+            writer.WriteShortUTF(mapper.Name);
         }
 
         private TypeMapper GetMapper(string name)
@@ -154,6 +151,7 @@ namespace BeetleX.Packets
 
     public class DefaultPacket : FixedHeaderPacket
     {
+
         public DefaultPacket()
         {
             TypeHeader = new DefaultTypeHeader();
@@ -175,22 +173,21 @@ namespace BeetleX.Packets
 
         public override IPacket Clone()
         {
-            IPacket result = new DefaultPacket(this.TypeHeader);
-            return result;
+            return new DefaultPacket(this.TypeHeader);
         }
 
-        protected override object OnReader(ISession session, PipeStream stream)
+        protected override object OnReader(ISession session, IBinaryReader reader)
         {
-            Type type = TypeHeader.ReadType(stream);
+            Type type = TypeHeader.ReadType(reader);
             if (type.IsGenericType)
             {
                 IList items = (IList)Activator.CreateInstance(type);
-                int count = stream.ReadInt32();
+                int count = reader.ReadInt32();
                 Type subType = type.GetGenericArguments()[0];
                 for (int i = 0; i < count; i++)
                 {
                     IMessage item = (IMessage)Activator.CreateInstance(subType);
-                    item.Load(stream);
+                    item.Load(reader);
                     items.Add(item);
                 }
                 return items;
@@ -198,28 +195,28 @@ namespace BeetleX.Packets
             else
             {
                 IMessage msg = (IMessage)Activator.CreateInstance(type);
-                msg.Load(stream);
+                msg.Load(reader);
                 return msg;
             }
         }
 
-        protected override void OnWrite(ISession session, object data, PipeStream stream)
+        protected override void OnWrite(ISession session, object data, IBinaryWriter writer)
         {
             if (data is IMessage)
             {
-                this.TypeHeader.WriteType(data, stream);
-                ((IMessage)data).Save(stream);
+                this.TypeHeader.WriteType(data, writer);
+                ((IMessage)data).Save(writer);
             }
             else if (data is IList)
             {
-                this.TypeHeader.WriteType(data, stream);
+                this.TypeHeader.WriteType(data, writer);
                 IList items = (IList)data;
                 if (items.Count > 0 && !(items[0] is IMessage))
-                    throw new BXException("item object not implement IMessage !");
-                stream.Write(items.Count);
+                    throw new BXException("item object  not implement IMessage !");
+                writer.Write(items.Count);
                 foreach (IMessage item in items)
                 {
-                    item.Save(stream);
+                    item.Save(writer);
                 }
 
             }
@@ -252,22 +249,21 @@ namespace BeetleX.Packets
 
         public override IClientPacket Clone()
         {
-            IClientPacket result = new DefaultClientPacket(this.TypeHeader);
-            return result;
+            return new DefaultClientPacket(this.TypeHeader);
         }
 
-        protected override object OnRead(IClient client, PipeStream stream)
+        protected override object OnRead(IClient client, IBinaryReader reader)
         {
-            Type type = TypeHeader.ReadType(stream);
+            Type type = TypeHeader.ReadType(reader);
             if (type.IsGenericType)
             {
                 IList items = (IList)Activator.CreateInstance(type);
-                int count = stream.ReadInt32();
+                int count = reader.ReadInt32();
                 Type subType = type.GetGenericArguments()[0];
                 for (int i = 0; i < count; i++)
                 {
                     IMessage item = (IMessage)Activator.CreateInstance(subType);
-                    item.Load(stream);
+                    item.Load(reader);
                     items.Add(item);
                 }
                 return items;
@@ -275,28 +271,31 @@ namespace BeetleX.Packets
             else
             {
                 IMessage msg = (IMessage)Activator.CreateInstance(type);
-                msg.Load(stream);
+                msg.Load(reader);
                 return msg;
             }
+
         }
-        protected override void OnWrite(object data, IClient client, PipeStream stream)
+
+        protected override void OnWrite(object data, IClient client, IBinaryWriter writer)
         {
             if (data is IMessage)
             {
-                this.TypeHeader.WriteType(data, stream);
-                ((IMessage)data).Save(stream);
+                this.TypeHeader.WriteType(data, writer);
+                ((IMessage)data).Save(writer);
             }
             else if (data is IList)
             {
-                this.TypeHeader.WriteType(data, stream);
+                this.TypeHeader.WriteType(data, writer);
                 IList items = (IList)data;
                 if (items.Count > 0 && !(items[0] is IMessage))
                     throw new BXException("item object not implement IMessage !");
-                stream.Write(items.Count);
+                writer.Write(items.Count);
                 foreach (IMessage item in items)
                 {
-                    item.Save(stream);
+                    item.Save(writer);
                 }
+
             }
             else
             {

@@ -10,8 +10,6 @@
     <Version>0.9.1</Version>
     <Description>high performance socket tcp communication components</Description>
     <Copyright>Copyright © henryfan 2018</Copyright>
-    <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/IKende/BeetleX/blob/master/src/BeetleX/License.txt</PackageLicenseUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

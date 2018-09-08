@@ -9,15 +9,11 @@ namespace BeetleX.Buffers
     {
         int Length { get; }
 
-        Memory<byte> Memory { get; }
-
-        byte[] Data { get; }
+        Memory<byte> Data { get; }
 
         long ID { get; }
 
         bool Eof { get; }
-
-        int Size { get; }
 
         int Postion { get; set; }
 
@@ -142,7 +138,7 @@ namespace BeetleX.Buffers
 
         public int Length => mLength;
 
-        public Memory<byte> Memory => mData;
+        public Memory<byte> Data => mData;
 
         public bool Eof
         {
@@ -520,10 +516,6 @@ namespace BeetleX.Buffers
             }
         }
 
-        public byte[] Data => mBufferData;
-
-        public int Size => mSize;
-
         public void BindIOEvent(EventHandler<System.Net.Sockets.SocketAsyncEventArgs> e)
         {
             if (!mBindIOCompleted)
@@ -539,6 +531,7 @@ namespace BeetleX.Buffers
             int result = 0;
             result = socket.Receive(mBufferData);
             SetLength(result);
+
             return result;
         }
 
@@ -648,7 +641,7 @@ namespace BeetleX.Buffers
         internal static void Free(IBuffer buffer)
         {
             if (buffer != null)
-            {
+            {          
                 buffer.Free();
                 IBuffer next = buffer.Next;
                 while (next != null)

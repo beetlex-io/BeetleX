@@ -42,8 +42,8 @@ namespace Chat.Server
         {
             foreach (ISession item in server.GetOnlines())
             {
-                item.NetworkStream.WriteLine(cmd);
-                item.NetworkStream.Flush();
+                item.NetStream.WriteLine(cmd);
+                item.NetStream.Flush();
             }
         }
         public override void Disconnect(IServer server, SessionEventArgs e)

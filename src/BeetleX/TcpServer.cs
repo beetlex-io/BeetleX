@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using BeetleX.Buffers;
 using BeetleX.EventArgs;
@@ -18,7 +16,6 @@ namespace BeetleX
         {
             Config = config;
             Name = "TCP-SERVER-" + Guid.NewGuid().ToString("N");
-
         }
 
         private LRUDetector mSessionDetector = new LRUDetector();
@@ -140,9 +137,6 @@ namespace BeetleX
                 return mSessions.Count;
             }
         }
-        private X509Certificate mCertificate;
-
-        public X509Certificate Certificate => mCertificate;
 
         private void AddSession(ISession session)
         {
@@ -200,6 +194,7 @@ namespace BeetleX
                 mWatch.Restart();
                 mSessionDetector.Timeout = OnSessionDetection;
                 mSessionDetector.Server = this;
+
             }
         }
 
@@ -207,14 +202,6 @@ namespace BeetleX
         {
             try
             {
-                if (Config.SSL)
-                {
-                    if (string.IsNullOrEmpty(Config.CertificateFile))
-                    {
-                        throw new BXException("no the services ssl certificate file");
-                    }
-                    this.mCertificate = new X509Certificate(Config.CertificateFile, Config.CertificatePassword);
-                }
                 mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 System.Net.IPAddress address = string.IsNullOrEmpty(Config.Host) ? System.Net.IPAddress.Any : System.Net.IPAddress.Parse(Config.Host);
                 System.Net.IPEndPoint point = new System.Net.IPEndPoint(address, Config.Port);
@@ -249,65 +236,6 @@ namespace BeetleX
         #endregion
 
         #region session accept
-
-        private static void SslAuthenticateAsyncCallback(IAsyncResult ar)
-        {
-            Tuple<TcpSession, SslStream> state = (Tuple<TcpSession, SslStream>)ar.AsyncState;
-            TcpServer server = (TcpServer)state.Item1.Server;
-            try
-            {
-                SslStream sslStream = state.Item2;
-                sslStream.EndAuthenticateAsServer(ar);
-                EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
-                cead.Server = server;
-                cead.Session = state.Item1;
-
-                server.BeginReceive(state.Item1);
-                server.OnConnected(cead);
-            }
-            catch (Exception e_)
-            {
-                state.Item1.Server.Error(e_, state.Item1, "create session ssl authenticate callback error {0}", e_.Message);
-                state.Item1.Dispose();
-            }
-        }
-
-        private void ConnectedProcess(System.Net.Sockets.Socket e)
-        {
-            TcpSession session = new TcpSession();
-            session.Socket = e;
-            session.SSL = Config.SSL;
-            session.Initialization(this, null);
-            session.LittleEndian = Config.LittleEndian;
-            session.RemoteEndPoint = e.RemoteEndPoint;
-            if (this.Packet != null)
-            {
-                session.Packet = this.Packet.Clone();
-                session.Packet.Completed = OnPacketDecodeCompleted;
-            }
-            if (Config.ReceiveQueueEnabled)
-            {
-                session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
-            }
-            if (Config.SendQueueEnabled)
-            {
-                session.SendDispatcher = mSendDispatchCenter.Next();
-            }
-            AddSession(session);
-            if (!Config.SSL)
-            {
-                EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
-                cead.Server = this;
-                cead.Session = session;
-                BeginReceive(session);
-                OnConnected(cead);
-            }
-            else
-            {
-                session.CreateSSL(SslAuthenticateAsyncCallback);
-            }
-        }
-
         private void AcceptProcess(System.Net.Sockets.Socket e)
         {
             try
@@ -322,8 +250,31 @@ namespace BeetleX
                 }
                 else
                 {
+                    TcpSession session = new TcpSession();
+                    session.Initialization(this, null);
+                    session.Socket = e;
+                    session.LittleEndian = Config.LittleEndian;
+                    session.RemoteEndPoint = e.RemoteEndPoint;
+                    if (this.Packet != null)
+                    {
+                        session.Packet = this.Packet.Clone();
+                        session.Packet.Completed = OnPacketDecodeCompleted;
+                    }
+                    if (Config.ReceiveQueueEnabled)
+                    {
+                        session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
+                    }
+                    if (Config.SendQueueEnabled)
+                    {
+                        session.SendDispatcher = mSendDispatchCenter.Next();
+                    }
+                    EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
+                    cead.Server = this;
+                    cead.Session = session;
+                    AddSession(session);
+                    BeginReceive(session);
+                    OnConnected(cead);
 
-                    ConnectedProcess(e);
                 }
             }
             catch (Exception e_)
@@ -545,7 +496,7 @@ namespace BeetleX
                 try
                 {
 
-                    e.Session.Packet.Decode(e.Session, e.Stream);
+                    e.Session.Packet.Decode(e.Session, e.Reader);
                 }
                 catch (Exception e_)
                 {

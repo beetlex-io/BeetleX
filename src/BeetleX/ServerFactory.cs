@@ -32,66 +32,32 @@ namespace BeetleX
             return CreateTcpServer(config, new HANDLER(), null);
         }
 
-        public static CLIENT CreateClient<CLIENT>(string host, int port)
+        public static CLIENT CreateTcpClient<CLIENT>(string host, int port)
            where CLIENT : IClient, new()
         {
             CLIENT client = new CLIENT();
             client.Init(host, port, null);
-
             return client;
         }
 
-        public static CLIENT CreateClient<CLIENT, PACKET>(string host, int port)
+
+        public static CLIENT CreateTcpClient<CLIENT, PACKET>(string host, int port)
             where PACKET : Clients.IClientPacket, new()
             where CLIENT : IClient, new()
         {
             CLIENT client = new CLIENT();
             client.Init(host, port, new PACKET());
-
             return client;
         }
 
-        public static CLIENT CreateClient<CLIENT>(IClientPacket packet, string host, int port) where CLIENT : IClient, new()
+        public static CLIENT CreateTcpClient<CLIENT>(IClientPacket packet, string host, int port) where CLIENT : IClient, new()
         {
             CLIENT client = new CLIENT();
             client.Init(host, port, packet);
-
             return client;
         }
 
-
-        public static CLIENT CreateSslClient<CLIENT>(string host, int port, string serviceName)
-          where CLIENT : IClient, new()
-        {
-            CLIENT client = new CLIENT();
-            client.Init(host, port, null);
-            client.SSL = true;
-            client.SslServiceName = serviceName;
-            return client;
-        }
-
-        public static CLIENT CreateSslClient<CLIENT, PACKET>(string host, int port, string serviceName)
-            where PACKET : Clients.IClientPacket, new()
-            where CLIENT : IClient, new()
-        {
-            CLIENT client = new CLIENT();
-            client.Init(host, port, new PACKET());
-            client.SSL = true;
-            client.SslServiceName = serviceName;
-            return client;
-        }
-
-        public static CLIENT CreateSslClient<CLIENT>(IClientPacket packet, string host, int port, string serviceName) where CLIENT : IClient, new()
-        {
-            CLIENT client = new CLIENT();
-            client.Init(host, port, packet);
-            client.SSL = true;
-            client.SslServiceName = serviceName;
-            return client;
-        }
-
-
-
+      
 
         [ThreadStatic]
         private static bool mChangeExecuteContext = false;
