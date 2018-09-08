@@ -7,7 +7,6 @@ namespace Echo.Server
     class Program : ServerHandlerBase
     {
         private static IServer server;
-
         public static void Main(string[] args)
         {
             NetConfig config = new NetConfig();
@@ -20,7 +19,7 @@ namespace Echo.Server
         {
             string name = e.Reader.ReadLine();
             Console.WriteLine(name);
-            var w = e.Session.NetStream;
+            var w = e.Session.NetworkStream;
             w.WriteLine("hello " + name);
             w.Flush();
             base.SessionReceive(server, e);

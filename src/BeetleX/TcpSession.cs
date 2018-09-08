@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using BeetleX.Buffers;
 
@@ -15,7 +17,9 @@ namespace BeetleX
         private bool mIsDisposed = false;
 
 
-        private Buffers.PipeStream mNetStream;
+        private Buffers.PipeStream mBaseNetStream;
+
+        private SslStream mSslStream;
 
         private System.Collections.Concurrent.ConcurrentQueue<object> mSendMessages = new System.Collections.Concurrent.ConcurrentQueue<object>();
 
@@ -35,11 +39,11 @@ namespace BeetleX
         {
 
             Server = server;
-            mNetStream = new Buffers.PipeStream(Server.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
-            mNetStream.Encoding = Server.Config.Encoding;
-            mNetStream.LittleEndian = server.Config.LittleEndian;
-            mNetStream.FlashCompleted = OnWriterFlash;
-
+            mBaseNetStream = new Buffers.PipeStream(Server.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
+            mBaseNetStream.Encoding = Server.Config.Encoding;
+            mBaseNetStream.LittleEndian = server.Config.LittleEndian;
+            mBaseNetStream.FlashCompleted = OnWriterFlash;
+            mBaseNetStream.Socket = this.Socket;
             Authentication = AuthenticationType.None;
             if (setting != null)
             {
@@ -152,7 +156,9 @@ namespace BeetleX
                 }
                 mReceiveArgs.Server = null;
                 mReceiveArgs.Session = null;
-                mNetStream.Dispose();
+                mBaseNetStream.Dispose();
+                if (mSslStream != null)
+                    mSslStream.Dispose();
                 Server.CloseSession(this);
                 Server = null;
                 ReceiveDispatcher = null;
@@ -183,7 +189,7 @@ namespace BeetleX
         {
             if (!mIsDisposed)
             {
-                mNetStream.Import(buffer);
+                mBaseNetStream.Import(buffer);
                 InvokeReceiveEvent();
             }
             else
@@ -234,7 +240,7 @@ namespace BeetleX
             {
                 mReceiveArgs.Server = this.Server;
                 mReceiveArgs.Session = this;
-                mReceiveArgs.Reader = mNetStream;
+                mReceiveArgs.Stream = this.NetworkStream;
                 Server.SessionReceive(mReceiveArgs);
             }
         }
@@ -276,11 +282,11 @@ namespace BeetleX
                     }
                     else
                     {
-                        WriterData(data, mNetStream);
+                        WriterData(data, NetworkStream);
                     }
                     data = DequeueSendMessage();
                 }
-                IBuffer streamBuffer = mNetStream.GetWriteCacheBufers();
+                IBuffer streamBuffer = mBaseNetStream.GetWriteCacheBufers();
                 bufferLink.Import(streamBuffer);
                 if (bufferLink.First != null)
                 {
@@ -313,21 +319,21 @@ namespace BeetleX
             ProcessSendMessages();
         }
 
-        private void WriterData(object data, IBinaryWriter writer)
+        private void WriterData(object data, System.IO.Stream stream)
         {
             if (data is byte[])
             {
                 byte[] bytes = (byte[])data;
-                writer.Write(bytes, 0, bytes.Length);
+                stream.Write(bytes, 0, bytes.Length);
             }
             else if (data is ArraySegment<byte>)
             {
                 ArraySegment<byte> segment = (ArraySegment<byte>)data;
-                writer.Write(segment.Array, segment.Offset, segment.Count);
+                stream.Write(segment.Array, segment.Offset, segment.Count);
             }
             else
             {
-                Packet.Encode(data, this, writer);
+                Packet.Encode(data, this, stream);
             }
         }
 
@@ -377,7 +383,33 @@ namespace BeetleX
             set;
         }
 
-        public PipeStream NetStream => mNetStream;
+        public System.IO.Stream NetworkStream
+        {
+            get
+            {
+                if (SSL)
+                    return mSslStream;
+                return mBaseNetStream;
+            }
+        }
+
+        public bool SSL { get; internal set; }
+
+        public void CreateSSL(AsyncCallback asyncCallback)
+        {
+            try
+            {
+                mSslStream = new SslStramX(Server.BufferPool, Server.Config.Encoding,
+                    Server.Config.LittleEndian, mBaseNetStream, false);
+                mSslStream.BeginAuthenticateAsServer(Server.Certificate, false, true, new AsyncCallback(asyncCallback),
+                     new Tuple<TcpSession, SslStream>(this, this.mSslStream));
+            }
+            catch (Exception e_)
+            {
+                Server.Error(e_, this, "create session ssl error {0}", e_.Message);
+                this.Dispose();
+            }
+        }
     }
 }
 

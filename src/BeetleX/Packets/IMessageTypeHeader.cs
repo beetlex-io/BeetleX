@@ -9,9 +9,9 @@ namespace BeetleX.Packets
 
     public interface IMessageTypeHeader
     {
-        Type ReadType(IBinaryReader reader);
+        Type ReadType(PipeStream stream);
 
-        void WriteType(object data, IBinaryWriter writer);
+        void WriteType(object data, PipeStream stram);
 
         void Register(params Assembly[] assemblies);
     }
@@ -56,22 +56,22 @@ namespace BeetleX.Packets
             return result.Type;
         }
 
-        public Type ReadType(IBinaryReader reader)
+        public Type ReadType(PipeStream stream)
         {
             string name;
             switch (IDType)
             {
                 case MessageIDType.BYTE:
-                    name = reader.ReadByte().ToString();
+                    name = stream.ReadByte().ToString();
                     break;
                 case MessageIDType.INT:
-                    name = reader.ReadInt32().ToString();
+                    name = stream.ReadInt32().ToString();
                     break;
                 case MessageIDType.SHORT:
-                    name = reader.ReadInt16().ToString();
+                    name = stream.ReadInt16().ToString();
                     break;
                 default:
-                    name = reader.ReadShortUTF();
+                    name = stream.ReadShortUTF();
                     break;
             }
 
@@ -90,22 +90,22 @@ namespace BeetleX.Packets
 
 
 
-        public void WriteType(object data, IBinaryWriter writer)
+        public void WriteType(object data, PipeStream stream)
         {
             MessageTypeAttribute mta = GetMTA(data.GetType());
             switch (mta.mIDType)
             {
                 case MessageIDType.BYTE:
-                    writer.Write((byte)mta.ID);
+                    stream.Write((byte)mta.ID);
                     break;
                 case MessageIDType.INT:
-                    writer.Write((int)mta.ID);
+                    stream.Write((int)mta.ID);
                     break;
                 case MessageIDType.SHORT:
-                    writer.Write((short)mta.ID);
+                    stream.Write((short)mta.ID);
                     break;
                 case MessageIDType.STRING:
-                    writer.WriteShortUTF((string)mta.ID);
+                    stream.WriteShortUTF((string)mta.ID);
                     break;
             }
         }
