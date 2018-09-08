@@ -22,7 +22,12 @@ namespace BeetleX
             ExecutionContextEnabled = false;
             Combined = 0;
             Statistical = true;
+            SSL = false;
         }
+
+        public string CertificateFile { get; set; }
+
+        public string CertificatePassword { get; set; }
 
         public bool Statistical { get; set; }
 
@@ -60,6 +65,8 @@ namespace BeetleX
         public int MaxAcceptQueue { get; set; }
 
         public bool ExecutionContextEnabled { get; set; }
+
+        public bool SSL { get; set; }
 
     }
 }

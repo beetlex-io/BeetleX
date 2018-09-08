@@ -16,13 +16,12 @@ namespace BeetleX
 
         IPacket Clone();
 
-        void Decode(ISession session, Buffers.IBinaryReader reader);
+        void Decode(ISession session, System.IO.Stream stream);
 
-        void Encode(object data, ISession session, Buffers.IBinaryWriter writer);
+        void Encode(object data, ISession session, System.IO.Stream stream);
 
         byte[] Encode(object data, IServer server);
 
         ArraySegment<byte> Encode(object data, IServer server, byte[] buffer);
     }
-
 }

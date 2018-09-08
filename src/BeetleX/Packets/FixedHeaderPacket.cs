@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using BeetleX.Buffers;
 using BeetleX.Clients;
@@ -27,44 +28,44 @@ namespace BeetleX.Packets
 
         public EventHandler<PacketDecodeCompletedEventArgs> Completed { get; set; }
 
+
         public abstract IPacket Clone();
 
         private PacketDecodeCompletedEventArgs mCompletedArgs = new PacketDecodeCompletedEventArgs();
 
         private int mSize;
 
-        protected abstract object OnReader(ISession session, IBinaryReader reader);
+        protected abstract object OnReader(ISession session, PipeStream stream);
 
-        public void Decode(ISession session, IBinaryReader reader)
+        public void Decode(ISession session, System.IO.Stream stream)
         {
+            PipeStream pstream = stream.ToPipeStream();
             START:
-
             object data;
             if (mSize == 0)
             {
                 if (SizeType == FixedSizeType.INT)
                 {
-                    if (reader.Length < 4)
+                    if (pstream.Length < 4)
                         return;
-                    mSize = reader.ReadInt32();
+                    mSize = pstream.ReadInt32();
                 }
                 else
                 {
-                    if (reader.Length < 2)
+                    if (pstream.Length < 2)
                         return;
-                    mSize = reader.ReadInt16();
+                    mSize = pstream.ReadInt16();
                 }
             }
-            if (reader.Length < mSize)
+            if (stream.Length < mSize)
                 return;
-            data = OnReader(session, reader);
+            data = OnReader(session, pstream);
             mSize = 0;
-
             Completed?.Invoke(this, mCompletedArgs.SetInfo(session, data));
-
             goto START;
 
         }
+
 
         public virtual
             void Dispose()
@@ -72,21 +73,23 @@ namespace BeetleX.Packets
 
         }
 
-        protected abstract void OnWrite(ISession session, object data, IBinaryWriter writer);
+        protected abstract void OnWrite(ISession session, object data, PipeStream stream);
 
-        private void OnEncode(ISession session, object data, IBinaryWriter writer)
+        private void OnEncode(ISession session, object data, System.IO.Stream stream)
         {
-            MemoryBlockCollection msgsize = writer.Allocate(4);
-            int length = (int)writer.CacheLength;
-            OnWrite(session, data, writer);
+            PipeStream pstream = stream.ToPipeStream();
+            MemoryBlockCollection msgsize = pstream.Allocate(4);
+            int length = (int)pstream.CacheLength;
+            OnWrite(session, data, pstream);
             if (SizeType == FixedSizeType.INT)
             {
-                msgsize.Full((int)writer.CacheLength - length);
+                msgsize.Full((int)pstream.CacheLength - length);
             }
             else
             {
-                msgsize.Full((Int16)writer.CacheLength - length);
+                msgsize.Full((Int16)pstream.CacheLength - length);
             }
+            pstream.Flush();
         }
 
         public byte[] Encode(object data, IServer server)
@@ -94,7 +97,6 @@ namespace BeetleX.Packets
             byte[] result = null;
             using (Buffers.PipeStream stream = new PipeStream(server.BufferPool, server.Config.LittleEndian, server.Config.Encoding))
             {
-
                 OnEncode(null, data, stream);
                 stream.Position = 0;
                 result = new byte[stream.Length];
@@ -115,9 +117,9 @@ namespace BeetleX.Packets
             }
         }
 
-        public void Encode(object data, ISession session, IBinaryWriter writer)
+        public void Encode(object data, ISession session, System.IO.Stream stream)
         {
-            OnEncode(session, data, writer);
+            OnEncode(session, data, stream);
         }
     }
 
@@ -126,6 +128,7 @@ namespace BeetleX.Packets
         public FixeHeaderClientPacket()
         {
             SizeType = FixedSizeType.INT;
+
         }
 
         public FixedSizeType SizeType
@@ -133,35 +136,37 @@ namespace BeetleX.Packets
 
         public EventClientPacketCompleted Completed { get; set; }
 
+
+
         public abstract IClientPacket Clone();
 
         private int mSize;
 
-        protected abstract object OnRead(IClient client, IBinaryReader reader);
+        protected abstract object OnRead(IClient client, PipeStream stream);
 
-        public void Decode(IClient client, IBinaryReader reader)
+        public void Decode(IClient client, Stream stream)
         {
+            PipeStream pstream = stream.ToPipeStream();
             START:
-
             object data;
             if (mSize == 0)
             {
                 if (SizeType == FixedSizeType.INT)
                 {
-                    if (reader.Length < 4)
+                    if (pstream.Length < 4)
                         return;
-                    mSize = reader.ReadInt32();
+                    mSize = pstream.ReadInt32();
                 }
                 else
                 {
-                    if (reader.Length < 2)
+                    if (pstream.Length < 2)
                         return;
-                    mSize = reader.ReadInt16();
+                    mSize = pstream.ReadInt16();
                 }
             }
-            if (reader.Length < mSize)
+            if (stream.Length < mSize)
                 return;
-            data = OnRead(client, reader);
+            data = OnRead(client, pstream);
             mSize = 0;
             Completed?.Invoke(client, data);
             goto START;
@@ -173,20 +178,21 @@ namespace BeetleX.Packets
 
         }
 
-        protected abstract void OnWrite(object data, IClient client, IBinaryWriter writer);
+        protected abstract void OnWrite(object data, IClient client, PipeStream stream);
 
-        public void Encode(object data, IClient client, IBinaryWriter writer)
+        public void Encode(object data, IClient client, Stream stream)
         {
-            MemoryBlockCollection msgsize = writer.Allocate(4);
-            int length = (int)writer.CacheLength;
-            OnWrite(data, client, writer);
+            PipeStream pstream = stream.ToPipeStream();
+            MemoryBlockCollection msgsize = pstream.Allocate(4);
+            int length = (int)pstream.CacheLength;
+            OnWrite(data, client, pstream);
             if (SizeType == FixedSizeType.INT)
             {
-                msgsize.Full((int)writer.CacheLength - length);
+                msgsize.Full((int)pstream.CacheLength - length);
             }
             else
             {
-                msgsize.Full((Int16)writer.CacheLength - length);
+                msgsize.Full((Int16)pstream.CacheLength - length);
             }
         }
     }

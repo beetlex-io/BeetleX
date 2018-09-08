@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace BeetleX.Clients
@@ -13,6 +14,7 @@ namespace BeetleX.Clients
     public interface IClientPacket : IDisposable
     {
 
+
         EventClientPacketCompleted Completed
         {
             get;
@@ -21,9 +23,9 @@ namespace BeetleX.Clients
 
         IClientPacket Clone();
 
-        void Decode(IClient client, Buffers.IBinaryReader reader);
+        void Decode(IClient client, System.IO.Stream stream);
 
-        void Encode(object data, IClient client, Buffers.IBinaryWriter writer);
+        void Encode(object data, IClient client, System.IO.Stream stream);
     }
 
 
