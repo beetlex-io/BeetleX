@@ -17,6 +17,9 @@ namespace IMessage.Server
         {
 
             NetConfig config = new NetConfig();
+            //config.SSL = true;
+            //config.CertificateFile = @"c:\ssltest.pfx";
+            //config.CertificatePassword = "123456";
             DefaultPacket packet = new DefaultPacket();
             packet.Register(typeof(Employee).Assembly);
             mEmployees = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Employee>>(Datas.Employees);

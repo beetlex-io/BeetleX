@@ -13,7 +13,8 @@ namespace IMessage.Client
         {
             DefaultClientPacket packet = new DefaultClientPacket();
             packet.Register(typeof(Employee).Assembly);
-            TcpClient client = SocketFactory.CreateTcpClient<TcpClient>(packet, "127.0.0.1", 9090);
+            TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090);
+            //TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090,"localhost");
             while (true)
             {
                 Console.Write("enter get employee quantity:");

@@ -12,7 +12,9 @@ namespace Protobuf.Client
         {
             Messages.ClientPacket packet = new Messages.ClientPacket();
             packet.Register(typeof(Employee).Assembly);
-            TcpClient client = SocketFactory.CreateTcpClient<TcpClient>(packet, "127.0.0.1", 9090);
+            TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090);
+            //TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090,"localhost");
+         
             while (true)
             {
                 Console.Write("select search category 1.customer  2.employee :");

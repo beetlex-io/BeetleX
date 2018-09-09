@@ -11,6 +11,9 @@ namespace Echo.Server
         public static void Main(string[] args)
         {
             NetConfig config = new NetConfig();
+            //config.SSL = true;
+            //config.CertificateFile = @"c:\ssltest.pfx";
+            //config.CertificatePassword = "123456";
             server = SocketFactory.CreateTcpServer<Program>(config);
             server.Open();
             Console.Write(server);
@@ -18,11 +21,10 @@ namespace Echo.Server
         }
         public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
         {
-            string name = e.Reader.ReadLine();
+            string name = e.Stream.ToPipeStream().ReadLine();
             Console.WriteLine(name);
-            var w = e.Session.NetStream;
-            w.WriteLine("hello " + name);
-            w.Flush();
+            e.Session.Stream.ToPipeStream().WriteLine("hello " + name);
+            e.Session.Stream.Flush();
             base.SessionReceive(server, e);
         }
     }

@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 namespace BeetleX.EventArgs
 {
-    public class SessionReceiveEventArgs:SessionEventArgs
+    public class SessionReceiveEventArgs : SessionEventArgs
     {
-        public Buffers.IBinaryReader Reader { get; internal set; }
+        public System.IO.Stream Stream { get; internal set; }
     }
 }

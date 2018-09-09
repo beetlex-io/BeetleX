@@ -55,10 +55,12 @@ namespace BeetleX
         IPacket Packet
         { get; }
 
-        Buffers.PipeStream NetStream
+        System.IO.Stream Stream
         {
             get;
         }
+
+        bool SSL { get; }
 
         AuthenticationType Authentication
         { get; set; }

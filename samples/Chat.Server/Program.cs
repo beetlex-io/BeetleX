@@ -7,12 +7,12 @@ namespace Chat.Server
     class Program : ServerHandlerBase
     {
         private static IServer server;
-
-
-
         public static void Main(string[] args)
         {
             NetConfig config = new NetConfig();
+            //config.SSL = true;
+            //config.CertificateFile = @"c:\ssltest.pfx";
+            //config.CertificatePassword = "123456";
             server = SocketFactory.CreateTcpServer<Program>(config);
             server.Open();
             Console.Write(server);
@@ -21,7 +21,7 @@ namespace Chat.Server
         public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
         {
 
-            string line = e.Reader.ReadLine();
+            string line = e.Stream.ToPipeStream().ReadLine();
             Cmd cmd = ChatParse.Parse(line);
             string result;
             switch (cmd.Type)
@@ -32,7 +32,7 @@ namespace Chat.Server
                     SendToOnlines(result, server);
                     break;
                 case CmdType.SPEAK:
-                    result = ChatParse.CreateCommand(CmdType.SPEAK, "["+ e.Session.Name + "]" + cmd.Text);
+                    result = ChatParse.CreateCommand(CmdType.SPEAK, "[" + e.Session.Name + "]" + cmd.Text);
                     SendToOnlines(result, server);
                     break;
             }
@@ -42,8 +42,8 @@ namespace Chat.Server
         {
             foreach (ISession item in server.GetOnlines())
             {
-                item.NetStream.WriteLine(cmd);
-                item.NetStream.Flush();
+                item.Stream.ToPipeStream().WriteLine(cmd);
+                item.Stream.Flush();
             }
         }
         public override void Disconnect(IServer server, SessionEventArgs e)

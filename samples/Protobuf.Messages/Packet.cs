@@ -50,7 +50,7 @@ namespace Protobuf.Messages
             return result;
         }
 
-        public Type ReadType(IBinaryReader reader)
+        public Type ReadType(PipeStream reader)
         {
             string typeName = reader.ReadShortUTF();
             return GetType(typeName);
@@ -71,7 +71,7 @@ namespace Protobuf.Messages
             return result;
         }
 
-        public void WriteType(object data, IBinaryWriter writer)
+        public void WriteType(object data, PipeStream writer)
         {
             string name = GetTypeName(data.GetType());
             writer.WriteShortUTF(name);
@@ -106,20 +106,20 @@ namespace Protobuf.Messages
             return result;
         }
 
-        protected override object OnRead(IClient client, IBinaryReader reader)
+        protected override object OnRead(IClient client, PipeStream reader)
         {
             Type type = TypeHeader.ReadType(reader);
             int bodySize = reader.ReadInt32();
             return reader.Stream.Deserialize(bodySize, type);
         }
 
-        protected override void OnWrite(object data, IClient client, IBinaryWriter writer)
+        protected override void OnWrite(object data, IClient client, PipeStream writer)
         {
             TypeHeader.WriteType(data, writer);
             MemoryBlockCollection bodysize = writer.Allocate(4);
-            int bodyStartlegnth = (int)writer.Length;
+            int bodyStartlegnth = (int)writer.CacheLength;
             ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(writer.Stream, data);
-            bodysize.Full((int)writer.Length - bodyStartlegnth);
+            bodysize.Full((int)writer.CacheLength - bodyStartlegnth);
         }
     }
 
@@ -146,20 +146,20 @@ namespace Protobuf.Messages
             return result;
         }
 
-        protected override object OnReader(ISession session, IBinaryReader reader)
+        protected override object OnReader(ISession session, PipeStream reader)
         {
             Type type = TypeHeader.ReadType(reader);
             int bodySize = reader.ReadInt32();
             return reader.Stream.Deserialize(bodySize, type);
         }
 
-        protected override void OnWrite(ISession session, object data, IBinaryWriter writer)
+        protected override void OnWrite(ISession session, object data, PipeStream writer)
         {
             TypeHeader.WriteType(data, writer);
             MemoryBlockCollection bodysize = writer.Allocate(4);
-            int bodyStartlegnth = (int)writer.Length;
+            int bodyStartlegnth = (int)writer.CacheLength;
             ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(writer.Stream, data);
-            bodysize.Full((int)writer.Length - bodyStartlegnth);
+            bodysize.Full((int)writer.CacheLength - bodyStartlegnth);
         }
     }
 }

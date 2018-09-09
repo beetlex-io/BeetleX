@@ -8,15 +8,16 @@ namespace Echo.Client
     {
         static void Main(string[] args)
         {
-            TcpClient client = SocketFactory.CreateTcpClient<TcpClient>("127.0.0.1", 9090);
+            TcpClient client = SocketFactory.CreateClient<TcpClient>("127.0.0.1", 9090);
+            //TcpClient client = SocketFactory.CreateSslClient<TcpClient>("127.0.0.1", 9090, "localhost");
             while (true)
             {
                 Console.Write("Enter Name:");
                 var line = Console.ReadLine();
-                client.NetStream.WriteLine(line);
-                client.NetStream.Flush();
+                client.Stream.ToPipeStream().WriteLine(line);
+                client.Stream.Flush();
                 var reader = client.Read();
-                line = reader.ReadLine();
+                line = reader.ToPipeStream().ReadLine();
                 Console.WriteLine(line);
             }
             Console.WriteLine("Hello World!");

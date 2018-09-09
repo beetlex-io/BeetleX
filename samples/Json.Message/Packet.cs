@@ -33,7 +33,9 @@ namespace Json.Messages
             return result;
         }
 
-        public Type ReadType(IBinaryReader reader)
+        
+
+        public Type ReadType(PipeStream reader)
         {
             string typeName = reader.ReadShortUTF();
             return GetType(typeName);
@@ -54,7 +56,7 @@ namespace Json.Messages
             return result;
         }
 
-        public void WriteType(object data, IBinaryWriter writer)
+        public void WriteType(object data, PipeStream writer)
         {
             string name = GetTypeName(data.GetType());
             writer.WriteShortUTF(name);
@@ -89,18 +91,20 @@ namespace Json.Messages
             return result;
         }
 
-        protected override object OnRead(IClient client, IBinaryReader reader)
+
+
+        protected override object OnRead(IClient client, PipeStream stream)
         {
-            Type type = TypeHeader.ReadType(reader);
-            string value = reader.ReadUTF();
+            Type type = TypeHeader.ReadType(stream);
+            string value = stream.ReadUTF();
             return Newtonsoft.Json.JsonConvert.DeserializeObject(value, type);
         }
 
-        protected override void OnWrite(object data, IClient client, IBinaryWriter writer)
+        protected override void OnWrite(object data, IClient client, PipeStream stream)
         {
-            TypeHeader.WriteType(data, writer);
+            TypeHeader.WriteType(data, stream);
             string value = Newtonsoft.Json.JsonConvert.SerializeObject(data);
-            writer.WriteUTF(value);
+            stream.WriteUTF(value);
         }
     }
 
@@ -127,14 +131,14 @@ namespace Json.Messages
             return result;
         }
 
-        protected override object OnReader(ISession session, IBinaryReader reader)
+        protected override object OnReader(ISession session, PipeStream reader)
         {
             Type type = TypeHeader.ReadType(reader);
             string value = reader.ReadUTF();
             return Newtonsoft.Json.JsonConvert.DeserializeObject(value, type);
         }
 
-        protected override void OnWrite(ISession session, object data, IBinaryWriter writer)
+        protected override void OnWrite(ISession session, object data, PipeStream writer)
         {
             TypeHeader.WriteType(data, writer);
             string value = Newtonsoft.Json.JsonConvert.SerializeObject(data);

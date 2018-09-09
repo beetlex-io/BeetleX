@@ -34,7 +34,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        public Type ReadType(IBinaryReader reader)
+        public Type ReadType(PipeStream reader)
         {
             string typeName = reader.ReadShortUTF();
             return GetType(typeName);
@@ -55,7 +55,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        public void WriteType(object data, IBinaryWriter writer)
+        public void WriteType(object data, PipeStream writer)
         {
             string name = GetTypeName(data.GetType());
             writer.WriteShortUTF(name);
@@ -90,7 +90,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        protected override object OnRead(IClient client, IBinaryReader reader)
+        protected override object OnRead(IClient client, PipeStream reader)
         {
             Type type = TypeHeader.ReadType(reader);
             var serializer = MessagePackSerializer.Get(type);
@@ -98,7 +98,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        protected override void OnWrite(object data, IClient client, IBinaryWriter writer)
+        protected override void OnWrite(object data, IClient client, PipeStream writer)
         {
             TypeHeader.WriteType(data, writer);
             var serializer = MessagePackSerializer.Get(data.GetType());
@@ -130,7 +130,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        protected override object OnReader(ISession session, IBinaryReader reader)
+        protected override object OnReader(ISession session, PipeStream reader)
         {
             Type type = TypeHeader.ReadType(reader);
             var serializer = MessagePackSerializer.Get(type);
@@ -138,7 +138,7 @@ namespace MagPack.Messages
             return result;
         }
 
-        protected override void OnWrite(ISession session, object data, IBinaryWriter writer)
+        protected override void OnWrite(ISession session, object data, PipeStream writer)
         {
             TypeHeader.WriteType(data, writer);
             var serializer = MessagePackSerializer.Get(data.GetType());

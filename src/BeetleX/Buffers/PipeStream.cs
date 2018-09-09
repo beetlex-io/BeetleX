@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Sockets;
 using System.Text;
 
 namespace BeetleX.Buffers
@@ -8,6 +9,11 @@ namespace BeetleX.Buffers
     public class PipeStream : System.IO.Stream, IBinaryReader, IBinaryWriter, IDisposable
     {
         public PipeStream() : this(BufferPool.Default, true, Encoding.UTF8)
+        {
+
+        }
+
+        public PipeStream(bool littelEndian, Encoding coding) : this(BufferPool.Default, littelEndian, coding)
         {
 
         }
@@ -20,6 +26,8 @@ namespace BeetleX.Buffers
             mSubStringLen = mCacheBlockLen / this.Encoding.GetMaxByteCount(1);
             mDecoder = mEncoding.GetDecoder();
         }
+
+        public System.Net.Sockets.Socket Socket { get; set; }
 
         private Decoder mDecoder;
 
@@ -82,7 +90,7 @@ namespace BeetleX.Buffers
 
         public override long Length => mLength;
 
-        public override bool CanRead => mLength > 0;
+        public override bool CanRead => true;
 
         public override bool CanSeek => false;
 
@@ -223,7 +231,7 @@ namespace BeetleX.Buffers
             IBuffer rbuffer = GetReadBuffer();
             while (rbuffer != null)
             {
-                ReadOnlySpan<byte> data = rbuffer.Data.Span;
+                ReadOnlySpan<byte> data = rbuffer.Memory.Span;
                 for (int i = rbuffer.Postion; i < rbuffer.Length; i++)
                 {
                     len++;
@@ -267,7 +275,6 @@ namespace BeetleX.Buffers
             if (mLength == 0)
                 GetReadBuffer();
         }
-
         public void AddReadLength(int length)
         {
             System.Threading.Interlocked.Add(ref mLength, length);
@@ -275,6 +282,7 @@ namespace BeetleX.Buffers
 
         protected virtual void OnDisposed()
         {
+            InnerStream = null;
             Buffer.Free(mReadFirstBuffer);
             mReadFirstBuffer = null;
             mReadLastBuffer = null;
@@ -310,6 +318,8 @@ namespace BeetleX.Buffers
             return new MemoryBlockCollection(blocks);
         }
 
+        public System.IO.Stream InnerStream { get; set; }
+
 
         public Action<IBuffer> FlashCompleted
         {
@@ -329,6 +339,8 @@ namespace BeetleX.Buffers
                 Import(writeCache);
             }
         }
+
+
 
         #region read
 
@@ -587,7 +599,8 @@ namespace BeetleX.Buffers
                 else
                 {
                     value = ReadString(result.Length - eof.Length);
-                    ReadString(eof.Length);
+                    //ReadString(eof.Length);
+                    Read(eof, 0, eof.Length);
                 }
                 return true;
             }
@@ -887,6 +900,89 @@ namespace BeetleX.Buffers
         {
 
         }
+
+
+        #region pipistream intersocket send receive methods
+
+        public override IAsyncResult BeginRead(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException("buffer");
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException("offset");
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException("size");
+            }
+            Socket streamSocket = Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+            IAsyncResult asyncResult = streamSocket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+            return asyncResult;
+        }
+
+        public override int EndRead(IAsyncResult asyncResult)
+        {
+            if (asyncResult == null)
+            {
+                throw new ArgumentNullException("asyncResult");
+            }
+            Socket streamSocket = this.Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+
+            int num = streamSocket.EndReceive(asyncResult);
+            return num;
+        }
+
+        public override IAsyncResult BeginWrite(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException("buffer");
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException("offset");
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException("size");
+            }
+            Socket streamSocket = this.Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+            IAsyncResult asyncResult = streamSocket.BeginSend(buffer, offset, size, SocketFlags.None, callback, state);
+            return asyncResult;
+
+        }
+
+        public override void EndWrite(IAsyncResult asyncResult)
+        {
+
+            if (asyncResult == null)
+            {
+                throw new ArgumentNullException("asyncResult");
+            }
+            Socket streamSocket = this.Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+            streamSocket.EndSend(asyncResult);
+        }
+
+        #endregion
 
 
     }
