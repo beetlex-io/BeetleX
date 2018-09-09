@@ -60,3 +60,29 @@ beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它
         }
     }
 ```
+### 异步Client
+```
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Clients.AsyncTcpClient client = SocketFactory.CreateClient<Clients.AsyncTcpClient>("127.0.0.1", 9090);
+            //SSL
+            //Clients.AsyncTcpClient client = SocketFactory.CreateSslClient<Clients.AsyncTcpClient>("127.0.0.1", 9090, "serviceName");
+            client.ClientError = (o, e) =>
+            {
+                Console.WriteLine("client error {0}@{1}", e.Message, e.Error);
+            };
+            client.Receive = (o, e) =>
+            {
+                Console.WriteLine(e.Stream.ToPipeStream().ReadLine());
+            };
+            var pipestream = client.Stream.ToPipeStream();
+            pipestream.WriteLine("hello henry");
+            client.Stream.Flush();
+            Console.Read();
+        }
+    }
+```
+
+
