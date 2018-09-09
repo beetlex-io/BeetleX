@@ -553,23 +553,9 @@ namespace BeetleX.Buffers
             }
             return count;
         }
-        [ThreadStatic]
-        private static int mReceiveCount = 0;
 
-        public async void AsyncFrom(System.Net.Sockets.Socket socket)
+        public void AsyncFrom(System.Net.Sockets.Socket socket)
         {
-            mReceiveCount++;
-            if (mReceiveCount > 5)
-            {
-                mReceiveCount = 0;
-                var result = await Task.Run<bool>(() =>
-                {
-                    AsyncFrom(socket);
-                    return true;
-                });
-                return;
-            }
-
             mSAEA.IsReceive = true;
             mSAEA.UserToken = UserToken;
             mSAEA.SetBuffer(0, mSize);
@@ -580,19 +566,8 @@ namespace BeetleX.Buffers
             }
         }
 
-        public async void AsyncFrom(ISession session)
+        public void AsyncFrom(ISession session)
         {
-            mReceiveCount++;
-            if (mReceiveCount > 5)
-            {
-                mReceiveCount = 0;
-                var result = await Task.Run<bool>(() =>
-                {
-                    AsyncFrom(session);
-                    return true;
-                });
-                return;
-            }
             mSAEA.IsReceive = true;
             mSAEA.UserToken = UserToken;
             mSAEA.Session = session;
@@ -604,37 +579,20 @@ namespace BeetleX.Buffers
             }
         }
 
-        [ThreadStatic]
-        private static int mSendCount = 0;
-
-        public async void AsyncTo(System.Net.Sockets.Socket socket)
+        public void AsyncTo(System.Net.Sockets.Socket socket)
         {
-            mSendCount++;
-            if (mSendCount > 5)
-            {
-                mSendCount = 0;
-                var result = await Task.Run<bool>(() => { AsyncTo(socket); return true; });
-                return;
-            }
             mSAEA.IsReceive = false;
             mSAEA.UserToken = UserToken;
             mSAEA.SetBuffer(0, mLength);
             if (!socket.SendAsync(mSAEA))
             {
-
                 mSAEA.InvokeCompleted();
             }
         }
 
-        public async void AsyncTo(ISession session)
+        public  void AsyncTo(ISession session)
         {
-            mSendCount++;
-            if (mSendCount > 5)
-            {
-                mSendCount = 0;
-                var result = await Task.Run<bool>(() => { AsyncTo(session); return true; });
-                return;
-            }
+
             mSAEA.IsReceive = false;
             mSAEA.SetBuffer(0, mLength);
             mSAEA.Session = session;
