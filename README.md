@@ -9,6 +9,34 @@ beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它
 以下是PipeStream的结构：
 ![PipeStream](https://github.com/IKende/BeetleX/blob/master/PipeStream.png) 
 
+### 性能
+beetleX的性能到底怎样呢，以下简单和DotNetty进行一个网络数据交换的性能测试,分别是1K,5K和10K连接数下数据请求并发测试
+#### DotNetty测试代码
+```
+        public override void ChannelRead(IChannelHandlerContext context, object message)
+        {
+            var buffer = message as IByteBuffer;
+            context.WriteAsync(message);
+        }
+```
+#### Beetlex 测试代码
+```
+        public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
+        {
+            server.Send(e.Stream.ToPipeStream().GetReadBuffers(), e.Session);
+            base.SessionReceive(server, e);
+        }
+```
+### 测试结果
+#### 1K connections
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex1k.png) 
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty1k.png) 
+#### 5K connections
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex5k.png) 
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty5k.png) 
+#### 10K connections
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex10k.png) 
+![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty10k.png) 
 ### 构建TCP Server
 ```
     class Program : ServerHandlerBase
@@ -84,7 +112,7 @@ beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它
         }
     }
 ```
-### 对象解释器
+### 实现一个Protobuf对象解释器
 ```
     public class Packet : FixedHeaderPacket
     {
