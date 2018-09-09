@@ -84,5 +84,46 @@ beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它
         }
     }
 ```
+### 对象解释器
+```
+    public class Packet : FixedHeaderPacket
+    {
+        public Packet()
+        {
+            TypeHeader = new TypeHandler();
+        }
 
+        private PacketDecodeCompletedEventArgs mCompletedEventArgs = new PacketDecodeCompletedEventArgs();
+
+        public void Register(params Assembly[] assemblies)
+        {
+            TypeHeader.Register(assemblies);
+        }
+
+        public IMessageTypeHeader TypeHeader { get; set; }
+
+        public override IPacket Clone()
+        {
+            Packet result = new Packet();
+            result.TypeHeader = TypeHeader;
+            return result;
+        }
+
+        protected override object OnReader(ISession session, PipeStream reader)
+        {
+            Type type = TypeHeader.ReadType(reader);
+            int bodySize = reader.ReadInt32();
+            return reader.Stream.Deserialize(bodySize, type);
+        }
+
+        protected override void OnWrite(ISession session, object data, PipeStream writer)
+        {
+            TypeHeader.WriteType(data, writer);
+            MemoryBlockCollection bodysize = writer.Allocate(4);
+            int bodyStartlegnth = (int)writer.CacheLength;
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(writer.Stream, data);
+            bodysize.Full((int)writer.CacheLength - bodyStartlegnth);
+        }
+    }
+```
 
