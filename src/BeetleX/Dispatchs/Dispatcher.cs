@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Dispatchs
 {
-    class Dispatcher<T> : IDisposable
+    class SingleThreadDispatcher<T> : IDisposable
     {
-        public Dispatcher(Action<T> process)
+        public SingleThreadDispatcher(Action<T> process)
         {
             Process = process;
             mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
@@ -18,63 +18,195 @@ namespace BeetleX.Dispatchs
 
         private long mCount = 0;
 
-        private bool mEnabled = true;
+        private int mRunStatus = 0;
 
         private Action<T> Process;
 
         private System.Collections.Concurrent.ConcurrentQueue<T> mQueue;
 
+        public Action<T, Exception> ProcessError { get; set; }
+
         public void Enqueue(T item)
         {
             mQueue.Enqueue(item);
+            System.Threading.Interlocked.Increment(ref mCount);
+            InvokeStart();
         }
 
         private T Dequeue()
         {
             T item;
-            mQueue.TryDequeue(out item);
+            if (mQueue.TryDequeue(out item))
+            {
+                System.Threading.Interlocked.Decrement(ref mCount);
+            }
             return item;
         }
 
-        private void OnStart(object state)
+        private void InvokeStart()
         {
-            while (mEnabled)
+            if (System.Threading.Interlocked.CompareExchange(ref mRunStatus, 1, 0) == 0)
             {
-                T item = Dequeue();
-                if (item != null)
+                if (mCount > 0)
                 {
-                    mCount = 0;
-                    try
-                    {
-                        Process(item);
-                    }
-                    catch { }
+                    ThreadPool.QueueUserWorkItem(OnStart);
                 }
                 else
                 {
-                    if (mCount > 10)
-                    {
-                        Thread.Sleep(10);
-                        mCount = 0;
-                    }
-                    else
-                    {
-                        Thread.Yield();
-                    }
-                    mCount++;
+                    System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
                 }
             }
         }
 
+        private void OnStart(object state)
+        {
+            while (true)
+            {
+                T item = Dequeue();
+                if (item != null)
+                {
+
+                    try
+                    {
+                        Process(item);
+                    }
+                    catch (Exception e_)
+                    {
+                        try
+                        {
+                            if (ProcessError != null)
+                                ProcessError(item, e_);
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
+            InvokeStart();
+        }
+
         public void Start()
         {
-           ThreadPool.QueueUserWorkItem(OnStart);
+            InvokeStart();
         }
 
         public void Dispose()
         {
-            mEnabled = false;
             mQueue.Clear();
         }
+    }
+
+
+
+    class MultiThreadDispatcher<T> : IDisposable
+    {
+
+        public MultiThreadDispatcher(Action<T> process, int waitLength, int maxThreads)
+        {
+            mProcess = process;
+            mWaitLength = waitLength;
+            mMaxThreads = maxThreads;
+        }
+
+        private int mWaitLength;
+
+        private int mMaxThreads;
+
+        private int mThreads;
+
+        private Action<T> mProcess;
+
+        public int WaitLength => mWaitLength;
+
+        public Action<T> Process => mProcess;
+
+        private System.Collections.Concurrent.ConcurrentQueue<T> mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
+
+        public int Count => mCount;
+
+        public int Threads => mThreads;
+
+        private int mCount;
+
+        public Action<T, Exception> ProcessError { get; set; }
+
+        public void Enqueue(T item)
+        {
+            mQueue.Enqueue(item);
+            System.Threading.Interlocked.Increment(ref mCount);
+            InvokeProcess();
+        }
+
+        private void InvokeProcess()
+        {
+            if (mCount > 0)
+            {
+                int addthread = Interlocked.Increment(ref mThreads);
+                if (addthread == 1)
+                {
+                     ThreadPool.QueueUserWorkItem(OnRun);
+                }
+                else
+                {
+                    if (addthread > mMaxThreads || mCount< mWaitLength)
+                    {
+                        Interlocked.Decrement(ref mThreads);
+                    }
+                    else
+                    {                     
+                        ThreadPool.QueueUserWorkItem(OnRun);
+                    }
+                }
+            }
+        }
+
+        private void OnRun(object state)
+        {
+            while (true)
+            {
+                T item = Dequeue();
+                if (item != null)
+                {
+                    try
+                    {
+                        Process(item);
+                    }
+                    catch (Exception e_)
+                    {
+                        try
+                        {
+                            ProcessError?.Invoke(item, e_);
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            Interlocked.Decrement(ref mThreads);
+            InvokeProcess();
+        }
+
+        public T Dequeue()
+        {
+            T item;
+            if (mQueue.TryDequeue(out item))
+            {
+                System.Threading.Interlocked.Decrement(ref mCount);
+            }
+            return item;
+        }
+
+        public void Dispose()
+        {
+            mQueue.Clear();
+        }
+
     }
 }

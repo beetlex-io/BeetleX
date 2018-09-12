@@ -574,7 +574,6 @@ namespace BeetleX.Buffers
             mSAEA.SetBuffer(0, mSize);
             if (!session.Socket.ReceiveAsync(mSAEA))
             {
-
                 mSAEA.InvokeCompleted();
             }
         }
@@ -590,9 +589,8 @@ namespace BeetleX.Buffers
             }
         }
 
-        public  void AsyncTo(ISession session)
+        public void AsyncTo(ISession session)
         {
-
             mSAEA.IsReceive = false;
             mSAEA.SetBuffer(0, mLength);
             mSAEA.Session = session;

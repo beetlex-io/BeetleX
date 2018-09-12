@@ -14,9 +14,11 @@ namespace BeetleX
             ReceiveQueues = 2;
             SendQueues = 2;
             SendQueueEnabled = false;
-            MaxConnections = 20000;
+            MaxConnections = 10000;
             MaxAcceptQueue = 10000;
+            MaxAcceptThreads = 3;
             BufferSize = 1024 * 8;
+            BufferPoolSize = 1024;
             LittleEndian = true;
             Encoding = System.Text.Encoding.UTF8;
             ExecutionContextEnabled = false;
@@ -24,6 +26,8 @@ namespace BeetleX
             Statistical = true;
             SSL = false;
         }
+
+        public int MaxAcceptThreads { get; set; }
 
         public string CertificateFile { get; set; }
 
@@ -35,6 +39,9 @@ namespace BeetleX
         {
             get; set;
         }
+
+        public int BufferPoolSize { get; set; }
+
 
         public bool LittleEndian
         {

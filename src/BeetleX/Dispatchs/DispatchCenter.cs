@@ -15,20 +15,20 @@ namespace BeetleX.Dispatchs
         {
             for (int i = 0; i < count; i++)
             {
-                mDispatchers.Add(new Dispatcher<T>(process));
+                mDispatchers.Add(new SingleThreadDispatcher<T>(process));
             }
 
         }
 
-        public Dispatcher<T> Next()
+        public SingleThreadDispatcher<T> Next()
         {
-            return (Dispatcher<T>)mDispatchers[(int)(System.Threading.Interlocked.Increment(ref mIndex) % mDispatchers.Count)];
+            return (SingleThreadDispatcher<T>)mDispatchers[(int)(System.Threading.Interlocked.Increment(ref mIndex) % mDispatchers.Count)];
 
         }
 
         public void Start()
         {
-            foreach (Dispatcher<T> item in mDispatchers)
+            foreach (SingleThreadDispatcher<T> item in mDispatchers)
             {
                 item.Start();
             }
@@ -36,7 +36,7 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
-            foreach (Dispatcher<T> item in mDispatchers)
+            foreach (SingleThreadDispatcher<T> item in mDispatchers)
             {
                 item.Dispose();
             }

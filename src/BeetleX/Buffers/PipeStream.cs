@@ -264,18 +264,18 @@ namespace BeetleX.Buffers
             get { return mWriteLength; }
         }
 
-        public void WriteAdvance(int bytes)
+        internal void WriteAdvance(int bytes)
         {
             System.Threading.Interlocked.Add(ref mWriteLength, bytes);
         }
 
-        public void ReadAdvance(int bytes)
+        internal void ReadAdvance(int bytes)
         {
             System.Threading.Interlocked.Add(ref mLength, -bytes);
             if (mLength == 0)
                 GetReadBuffer();
         }
-        public void AddReadLength(int length)
+        internal void AddReadLength(int length)
         {
             System.Threading.Interlocked.Add(ref mLength, length);
         }

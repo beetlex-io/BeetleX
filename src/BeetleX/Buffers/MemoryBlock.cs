@@ -21,16 +21,30 @@ namespace BeetleX.Buffers
 
         public void Full(byte[] value)
         {
-            int index = 0;
-            for (int i = 0; i < Blocks.Count; i++)
+            if (value.Length <= 8)
             {
-                Span<byte> span = Blocks[i].Span;
-                for (int j = 0; j < span.Length; j++)
+                int index = 0;
+                for (int i = 0; i < Blocks.Count; i++)
                 {
-                    span[j] = value[index];
-                    index++;
+                    Span<byte> span = Blocks[i].Span;
+                    for (int j = 0; j < span.Length; j++)
+                    {
+                        span[j] = value[index];
+                        index++;
+                    }
                 }
-
+            }
+            else
+            {
+                int count = value.Length;
+                int offset = 0;
+                Span<byte> data = new Span<byte>(value);
+                for (int i = 0; i < Blocks.Count; i++)
+                {
+                    Span<byte> span = Blocks[i].Span;
+                    data.Slice(offset, span.Length).CopyTo(span);
+                    offset += span.Length;
+                }
             }
         }
 

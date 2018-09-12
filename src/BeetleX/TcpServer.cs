@@ -37,13 +37,12 @@ namespace BeetleX
 
         private Queue<SocketAsyncEventArgs> mSEAES = new Queue<SocketAsyncEventArgs>();
 
-        private Dispatchs.Dispatcher<Socket> mAcceptSockets = null;
-
         private Buffers.BufferPool mBufferPool;
 
         private Buffers.BufferPool mReceiveBufferPool;
 
         private Dictionary<long, ISession> mSessions;
+
 
         private long mReceivBytes;
 
@@ -178,11 +177,6 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-                if (mAcceptSockets == null)
-                {
-                    mAcceptSockets = new Dispatchs.Dispatcher<Socket>(AcceptProcess);
-                    mAcceptSockets.Start();
-                }
                 if (Config.ReceiveQueueEnabled)
                 {
                     mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs, Config.ReceiveQueues);
@@ -193,13 +187,15 @@ namespace BeetleX
                     mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Config.SendQueues);
                     mSendDispatchCenter.Start();
                 }
-                mBufferPool = new BufferPool(Config.BufferSize, 1024, IO_Completed);
-                mReceiveBufferPool = new BufferPool(Config.BufferSize, 1024 * 10, IO_Completed);
+                mBufferPool = new BufferPool(Config.BufferSize, Config.BufferPoolSize, IO_Completed);
+                mReceiveBufferPool = new BufferPool(Config.BufferSize, 1024, IO_Completed);
                 mSessions = new Dictionary<long, ISession>(Config.MaxConnections * 2);
                 mInitialized = true;
                 mWatch.Restart();
                 mSessionDetector.Timeout = OnSessionDetection;
                 mSessionDetector.Server = this;
+                mAcceptDispatcher = new Dispatchs.MultiThreadDispatcher<Socket>(AcceptProcess, 10, Config.MaxAcceptThreads);
+
             }
         }
 
@@ -219,10 +215,10 @@ namespace BeetleX
                 System.Net.IPAddress address = string.IsNullOrEmpty(Config.Host) ? System.Net.IPAddress.Any : System.Net.IPAddress.Parse(Config.Host);
                 System.Net.IPEndPoint point = new System.Net.IPEndPoint(address, Config.Port);
                 mSocket.Bind(point);
-                mSocket.Listen(100);
+                mSocket.Listen(512);
                 ToInitialize();
                 Status = ServerStatus.Start;
-                BeginAccept();
+                Task.Run(() => BeginAccept());
                 Log(LogType.Info, null, "server start@{0}:{1}", Config.Host, Config.Port);
                 return true;
 
@@ -238,6 +234,7 @@ namespace BeetleX
         public void Resume()
         {
             Status = ServerStatus.Start;
+            BeginAccept();
         }
 
         public bool Pause()
@@ -261,9 +258,9 @@ namespace BeetleX
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
                 cead.Server = server;
                 cead.Session = state.Item1;
-
-                server.BeginReceive(state.Item1);
                 server.OnConnected(cead);
+                server.BeginReceive(state.Item1);
+
             }
             catch (Exception e_)
             {
@@ -299,8 +296,8 @@ namespace BeetleX
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
                 cead.Server = this;
                 cead.Session = session;
-                BeginReceive(session);
                 OnConnected(cead);
+                BeginReceive(session);
             }
             else
             {
@@ -331,36 +328,37 @@ namespace BeetleX
                 Error(e_, null, "accept socket process error");
             }
 
+
         }
 
-        private void BeginAccept()
-        {
+        private Dispatchs.MultiThreadDispatcher<Socket> mAcceptDispatcher;
 
-            System.Threading.ThreadPool.QueueUserWorkItem(o =>
+
+        private async void BeginAccept()
+        {
+            try
             {
-                try
+                while (true)
                 {
-                    while (true)
+                    if (Status == ServerStatus.Stop)
                     {
-                        if (Status == ServerStatus.Stop)
-                        {
-                            System.Threading.Thread.Sleep(100);
-                            continue;
-                        }
-                        if (Status == ServerStatus.Closed)
-                        {
-                            break;
-                        }
-                        Socket socket = mSocket.Accept();
-                        mAcceptSockets.Enqueue(socket);
+                        System.Threading.Thread.Sleep(100);
+                        continue;
                     }
+                    if (Status == ServerStatus.Closed)
+                    {
+                        break;
+                    }
+                    var acceptSocket = await mSocket.AcceptAsync();
+                    mAcceptDispatcher.Enqueue(acceptSocket);
                 }
-                catch (Exception e_)
-                {
-                    Error(e_, null, "server accept error!");
-                    Status = ServerStatus.AcceptError;
-                }
-            });
+            }
+            catch (Exception e_)
+            {
+                Error(e_, null, "server accept error!");
+                Status = ServerStatus.AcceptError;
+            }
+
         }
 
         #endregion
@@ -502,6 +500,18 @@ namespace BeetleX
                         }
                         else
                         {
+                            if (session.SocketProcessHandler != null)
+                            {
+                                try
+                                {
+                                    session.SocketProcessHandler.SendCompleted(session, e);
+                                }
+                                catch (Exception ce_)
+                                {
+                                    Error(ce_, ex.Session, "send data completed process handler error {0}!", ce_.Message);
+                                }
+
+                            }
                             ((TcpSession)session).SendCompleted();
                         }
                     }
@@ -511,8 +521,6 @@ namespace BeetleX
                     Buffers.Buffer.Free(buffer);
                     session.Dispose();
                 }
-                if (session.SocketProcessHandler != null)
-                    session.SocketProcessHandler.ReceiveCompleted(session, e);
             }
             catch (Exception e_)
             {
@@ -683,7 +691,6 @@ namespace BeetleX
             {
 
             }
-
         }
         #endregion
 
@@ -696,8 +703,6 @@ namespace BeetleX
             CloseSocket(mSocket);
             if (mReceiveDispatchCenter != null)
                 mReceiveDispatchCenter.Dispose();
-            if (mAcceptSockets != null)
-                mAcceptSockets.Dispose();
             mSessionDetector.Server = null;
             mSessionDetector.Dispose();
 
@@ -814,6 +819,13 @@ namespace BeetleX
             sb.AppendFormat("Connections:{0}     Buffers:{1}\r\n",
                 Count.ToString("###,###,##0").PadLeft(15),
                 BufferPool.Count.ToString("###,###,##0").PadLeft(7));
+
+            if (mAcceptDispatcher != null)
+            {
+                sb.AppendFormat("AcceptQueue:{0}     Threads:{1}\r\n",
+                   mAcceptDispatcher.Count.ToString("###,###,##0").PadLeft(15),
+                   mAcceptDispatcher.Threads.ToString("###,###,##0").PadLeft(2));
+            }
 
             sb.AppendFormat("IO  Receive:{0}/s   Send:{1}/s\r\n",
             (ReceiveQuantity - mLastReceive).ToString("###,###,##0").PadLeft(15),

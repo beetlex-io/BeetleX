@@ -58,7 +58,7 @@ namespace BeetleX.Buffers
 
         public BufferPool()
         {
-            Init(1024 * 2, 1024);
+            Init(1024 * 8, 1024);
 
         }
 
@@ -82,7 +82,7 @@ namespace BeetleX.Buffers
             for (int i = 0; i < count; i++)
             {
                 item = CreateBuffer();
-                mPool.Push(item);
+                mPool.Enqueue(item);
             }
         }
 
@@ -103,12 +103,12 @@ namespace BeetleX.Buffers
             return item;
         }
 
-        private System.Collections.Concurrent.ConcurrentStack<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentStack<IBuffer>();
+        private System.Collections.Concurrent.ConcurrentQueue<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentQueue<IBuffer>();
 
         public IBuffer Pop()
         {
             IBuffer item;
-            if (!mPool.TryPop(out item))
+            if (!mPool.TryDequeue(out item))
             {
                 item = CreateBuffer();
             }
@@ -119,7 +119,7 @@ namespace BeetleX.Buffers
 
         public void Push(IBuffer item)
         {
-            mPool.Push(item);
+            mPool.Enqueue(item);
         }
 
         private static BufferPool mDefault;

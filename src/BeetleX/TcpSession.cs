@@ -198,13 +198,13 @@ namespace BeetleX
             }
         }
 
-        internal Dispatchs.Dispatcher<SocketAsyncEventArgsX> ReceiveDispatcher
+        internal Dispatchs.SingleThreadDispatcher<SocketAsyncEventArgsX> ReceiveDispatcher
         {
             get;
             set;
         }
 
-        internal Dispatchs.Dispatcher<ISession> SendDispatcher
+        internal Dispatchs.SingleThreadDispatcher<ISession> SendDispatcher
         {
             get;
             set;
@@ -401,6 +401,8 @@ namespace BeetleX
         }
 
         public bool SSL { get; internal set; }
+
+        public int SendMessages => mSendMessages.Count;
 
         public void CreateSSL(AsyncCallback asyncCallback)
         {

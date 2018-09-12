@@ -64,3 +64,6 @@ samples/Protobuf.Messages/bin/
 samples/Protobuf.Messages/obj/
 samples/Protobuf.Server/bin/
 samples/Protobuf.Server/obj/
+samples/Http.Server/Properties/
+samples/Http.Server/bin/
+samples/Http.Server/obj/

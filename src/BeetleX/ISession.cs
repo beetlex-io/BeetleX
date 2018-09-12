@@ -37,6 +37,8 @@ namespace BeetleX
         System.Net.Sockets.Socket Socket
         { get; }
 
+        int SendMessages { get; }
+
         string Name { get; set; }
 
         IServer Server { get; }
