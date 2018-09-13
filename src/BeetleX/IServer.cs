@@ -32,7 +32,7 @@ namespace BeetleX
 
         string Name { get; set; }
 
-        X509Certificate Certificate { get; }
+        X509Certificate2 Certificate { get; }
 
         IServerHandler Handler
         {

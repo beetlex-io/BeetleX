@@ -7,6 +7,15 @@ namespace BeetleX.EventArgs
 {
     public class ServerErrorEventArgs : ServerEventArgs
     {
+        public ServerErrorEventArgs()
+        {
+
+        }
+        public ServerErrorEventArgs(string message, Exception e)
+        {
+            Message = message;
+            Error = e;
+        }
         public ISession Session
         {
             get;

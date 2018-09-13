@@ -535,6 +535,31 @@ namespace BeetleX.Buffers
             return result;
         }
 
+        [ThreadStatic]
+        private static byte[] mReadFreeBuffer;
+
+        public void ReadFree(int length)
+        {
+            int bufferlen = 512;
+            if (mReadFreeBuffer == null)
+                mReadFreeBuffer = new byte[bufferlen];
+            if (length > this.Length)
+                length = (int)this.Length;
+            int len;
+            while (length > 0)
+            {
+                if (length > bufferlen)
+                {
+                    len = Read(mReadFreeBuffer, 0, bufferlen);
+                }
+                else
+                {
+                    len = Read(mReadFreeBuffer, 0, length);
+                }
+                length -= len;
+            }
+        }
+
         public uint ReadUInt32()
         {
             uint result = 0;

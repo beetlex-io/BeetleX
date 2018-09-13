@@ -139,9 +139,9 @@ namespace BeetleX
                 return mSessions.Count;
             }
         }
-        private X509Certificate mCertificate;
+        private X509Certificate2 mCertificate;
 
-        public X509Certificate Certificate => mCertificate;
+        public X509Certificate2 Certificate => mCertificate;
 
         private void AddSession(ISession session)
         {
@@ -209,7 +209,7 @@ namespace BeetleX
                     {
                         throw new BXException("no the services ssl certificate file");
                     }
-                    this.mCertificate = new X509Certificate(Config.CertificateFile, Config.CertificatePassword);
+                    this.mCertificate = new X509Certificate2(Config.CertificateFile, Config.CertificatePassword);
                 }
                 mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 System.Net.IPAddress address = string.IsNullOrEmpty(Config.Host) ? System.Net.IPAddress.Any : System.Net.IPAddress.Parse(Config.Host);
