@@ -16,9 +16,6 @@ namespace BeetleX.Buffers
 
         public IList<Memory<byte>> Blocks { get; set; }
 
-
-
-
         public void Full(byte[] value)
         {
             if (value.Length <= 8)

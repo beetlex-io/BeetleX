@@ -334,7 +334,7 @@ namespace BeetleX
         private Dispatchs.MultiThreadDispatcher<Socket> mAcceptDispatcher;
 
 
-        private async void BeginAccept()
+        private void BeginAccept()
         {
             try
             {
@@ -349,7 +349,7 @@ namespace BeetleX
                     {
                         break;
                     }
-                    var acceptSocket = await mSocket.AcceptAsync();
+                    var acceptSocket = mSocket.Accept();
                     mAcceptDispatcher.Enqueue(acceptSocket);
                 }
             }

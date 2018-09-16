@@ -18,6 +18,8 @@ namespace BeetleX.Buffers
 
         }
 
+        public PipeStream(BufferPool pool) : this(pool, true, Encoding.UTF8) { }
+
         public PipeStream(IBufferPool pool, bool littelEndian, Encoding coding)
         {
             mPool = pool;
@@ -220,7 +222,90 @@ namespace BeetleX.Buffers
             return result;
         }
 
-        public IndexOfResult indexOf(Byte[] eof)
+        private IBuffer mStartBuffer;
+
+        private int mStartCacheLength;
+
+        private int mStartPostion;
+
+        public void Start()
+        {
+            mStartBuffer = GetWriteBuffer();
+            mStartCacheLength = CacheLength;
+            mStartPostion = mStartBuffer.Postion;
+        }
+
+        public IndexOfResult End()
+        {
+            IndexOfResult result = new IndexOfResult();
+            result.Start = mStartBuffer;
+            result.StartPostion = mStartPostion;
+            int length = this.CacheLength - mStartCacheLength;
+            result.Length = length;
+            IBuffer nextbuf = mStartBuffer;
+            while (nextbuf != null)
+            {
+                if (nextbuf == mStartBuffer)
+                {
+                    if (mStartBuffer.Postion - result.StartPostion >= length)
+                    {
+                        result.End = nextbuf;
+                        result.EndPostion = nextbuf.Postion - 1;
+                        break;
+                    }
+                    else
+                    {
+                        length -= (mStartBuffer.Postion - result.StartPostion);
+                    }
+                }
+                else
+                {
+                    if (nextbuf.Postion >= length)
+                    {
+                        result.End = nextbuf;
+                        result.EndPostion = nextbuf.Postion - 1;
+                        break;
+                    }
+                    else
+                    {
+                        length -= nextbuf.Postion;
+                    }
+                }
+                nextbuf = nextbuf.Next;
+            }
+            mStartBuffer = null;
+            return result;
+        }
+
+        public IndexOfResult IndexOf(int length)
+        {
+            IndexOfResult result = new IndexOfResult();
+            if (mLength < length)
+                return result;
+            IBuffer rbuffer = GetReadBuffer();
+            result.Start = rbuffer;
+            result.Length = length;
+            if (rbuffer != null)
+                result.StartPostion = rbuffer.Postion;
+            while (rbuffer != null)
+            {
+                int count = rbuffer.Length - rbuffer.Postion;
+                if (count >= length)
+                {
+                    result.End = rbuffer;
+                    result.EndPostion = rbuffer.Postion + length - 1;
+                    break;
+                }
+                else
+                {
+                    length -= count;
+                }
+                rbuffer = rbuffer.Next;
+            }
+            return result;
+        }
+
+        public IndexOfResult IndexOf(Byte[] eof)
         {
             int eoflen = eof.Length;
             int index = 0;
@@ -229,6 +314,9 @@ namespace BeetleX.Buffers
             if (mLength < eoflen)
                 return result;
             IBuffer rbuffer = GetReadBuffer();
+            result.Start = rbuffer;
+            if (rbuffer != null)
+                result.StartPostion = rbuffer.Postion;
             while (rbuffer != null)
             {
                 ReadOnlySpan<byte> data = rbuffer.Memory.Span;
@@ -246,7 +334,7 @@ namespace BeetleX.Buffers
                     if (index == eoflen)
                     {
                         result.EndPostion = i;
-                        result.EndBufferID = rbuffer.ID;
+                        result.End = rbuffer;
                         result.Length = len;
                         return result;
                     }
@@ -255,7 +343,6 @@ namespace BeetleX.Buffers
             }
             return result;
         }
-
 
         private int mWriteLength;
 
@@ -318,7 +405,7 @@ namespace BeetleX.Buffers
             return new MemoryBlockCollection(blocks);
         }
 
-        public System.IO.Stream InnerStream { get; set; }
+        public Stream InnerStream { get; set; }
 
 
         public Action<IBuffer> FlashCompleted
@@ -614,7 +701,7 @@ namespace BeetleX.Buffers
         public bool TryReadWith(byte[] eof, out string value, bool returnEof = false)
         {
             value = null;
-            IndexOfResult result = indexOf(eof);
+            IndexOfResult result = IndexOf(eof);
             if (result.Length > 0)
             {
                 if (returnEof)

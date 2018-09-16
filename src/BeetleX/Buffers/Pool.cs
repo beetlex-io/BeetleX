@@ -64,6 +64,10 @@ namespace BeetleX.Buffers
 
         private EventHandler<System.Net.Sockets.SocketAsyncEventArgs> mCompleted;
 
+        public BufferPool(int size, int count) : this(size, count, null
+            )
+        { }
+
         public BufferPool(int size, int count, EventHandler<System.Net.Sockets.SocketAsyncEventArgs> completed)
         {
             mCompleted = completed;

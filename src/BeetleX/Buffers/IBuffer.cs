@@ -5,15 +5,23 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Buffers
 {
-    public interface IBuffer
+    public interface IReadMemory
     {
+        long ID { get; }
+
+        ReadOnlySpan<byte> Bytes { get; }
+
+        IReadMemory NextMemory { get; }
+    }
+
+    public interface IBuffer :IReadMemory
+    {
+     
         int Length { get; }
 
         Memory<byte> Memory { get; }
 
         byte[] Data { get; }
-
-        long ID { get; }
 
         bool Eof { get; }
 
@@ -523,6 +531,10 @@ namespace BeetleX.Buffers
         public byte[] Data => mBufferData;
 
         public int Size => mSize;
+
+        public ReadOnlySpan<byte> Bytes => new ReadOnlySpan<byte>(mBufferData);
+
+        public IReadMemory NextMemory => Next;
 
         public void BindIOEvent(EventHandler<System.Net.Sockets.SocketAsyncEventArgs> e)
         {
