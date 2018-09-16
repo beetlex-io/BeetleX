@@ -8,7 +8,7 @@ beetleX网络流读写是基于Stream标准来构建，仅仅基于Stream的基�
 beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它是构建在Stream标准之上；它和.NET内置的NetworkStream最大的差别是PipeStream的读写基于SocketAsyncEventArgs实现，这正是在编写高性能网络数据处理所提倡的模式。PipeStream不仅在网络数据处理模式上有着性能的优势，在内存读写上和MemoryStream也有着很大的区别；由于PipeStream的内存块是以一个基于链表的SocketAsyncEventArgs Buffer 组成，因此PipeStream在写入大数据的情况并不存在内存扩容和复制的问题；因为PipeStream基础内存是SocketAsyncEventArgs Buffer，所以在数据和网络缓存读写并不存在内存块复制过程。如果在应用中中使用PipeStream相应的BinaryReader和IBinaryWriter读写规范，那大部分数据处理基本不存在内存复制过程，从而让数据处理性能更高效。
 
 以下是PipeStream的结构：
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/PipeStream.png) 
+![PipeStream](https://i.imgur.com/16wjO0R.png) 
 
 ### 性能
 beetleX的性能到底怎样呢，以下简单和DotNetty进行一个网络数据交换的性能测试,分别是1K,5K和10K连接数下数据请求并发测试
@@ -30,14 +30,14 @@ beetleX的性能到底怎样呢，以下简单和DotNetty进行一个网络数�
 ```
 ### 测试结果
 #### 1K connections
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex1k.png) 
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty1k.png) 
+![PipeStream](https://i.imgur.com/XlKeV9c.png) 
+![PipeStream](https://i.imgur.com/JIaqGPD.png) 
 #### 5K connections
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex5k.png) 
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty5k.png) 
+![PipeStream](https://i.imgur.com/KzeUtOv.png) 
+![PipeStream](https://i.imgur.com/ZBndSS6.png) 
 #### 10K connections
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/beetlex10k.png) 
-![PipeStream](https://github.com/IKende/BeetleX/blob/master/images/dotnetty10k.png) 
+![PipeStream](https://i.imgur.com/bc3UMeM.png) 
+![PipeStream](https://i.imgur.com/VrffHGR.png) 
 ### 构建TCP Server
 ```
     class Program : ServerHandlerBase
