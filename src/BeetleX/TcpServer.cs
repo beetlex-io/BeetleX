@@ -608,8 +608,10 @@ namespace BeetleX
         {
             try
             {
+                e.Session.Authentication = AuthenticationType.Connected;
                 if (Handler != null)
                     Handler.Connected(this, e);
+
             }
             catch (Exception e_)
             {

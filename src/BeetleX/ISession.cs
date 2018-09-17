@@ -69,15 +69,17 @@ namespace BeetleX
 
     }
 
-    public enum AuthenticationType
+    public enum AuthenticationType : int
     {
         None = 1,
 
-        User = 2,
+        Connected = 2,
 
-        Admin = 4,
+        User = 4,
 
-        security = 8
+        Admin = 8,
+
+        Security = 16
 
     }
 }
