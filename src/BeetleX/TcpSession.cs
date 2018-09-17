@@ -346,7 +346,7 @@ namespace BeetleX
 
         public bool Send(object data)
         {
-            if (IsDisposed && (int)this.Authentication > 1)
+            if (IsDisposed || (int)this.Authentication < 2)
             {
                 return false;
             }
