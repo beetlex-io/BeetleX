@@ -7,11 +7,11 @@ namespace BeetleX.Buffers
     public struct IndexOfResult
     {
 
-        public IReadMemory Start;
+        public IMemoryBlock Start;
 
         public int StartPostion;
 
-        public IReadMemory End;
+        public IMemoryBlock End;
 
         public int EndPostion;
 
