@@ -43,7 +43,6 @@ namespace BeetleX
 
         private Dictionary<long, ISession> mSessions;
 
-
         private long mReceivBytes;
 
         private long mSendQuantity;
@@ -845,6 +844,16 @@ namespace BeetleX
                 (SendBytes / 1024).ToString("###,###,##0").PadLeft(15));
             sb.AppendLine("");
             return sb.ToString();
+        }
+
+        public ISession GetSession(long id)
+        {
+            lock (mSessions)
+            {
+                if (mSessions.ContainsKey(id))
+                    return mSessions[id];
+                return null;
+            }
         }
     }
 }

@@ -46,6 +46,8 @@ namespace BeetleX
             set;
         }
 
+        ISession GetSession(long id);
+
         ServerStatus Status { get; set; }
 
         void UpdateSession(ISession session);

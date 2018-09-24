@@ -11,13 +11,13 @@ namespace BeetleX.Buffers
 
         Span<byte> Bytes { get; }
 
+        int Length { get; }
+
         IMemoryBlock NextMemory { get; }
     }
 
     public interface IBuffer : IMemoryBlock
     {
-
-        int Length { get; }
 
         Memory<byte> Memory { get; }
 
@@ -165,11 +165,7 @@ namespace BeetleX.Buffers
             {
                 mPostion = value;
                 mEof = mPostion >= mLength;
-
-
             }
-
-
         }
 
         public IBuffer Next { get; set; }
