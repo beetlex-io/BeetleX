@@ -233,7 +233,6 @@ namespace BeetleX
         public void Resume()
         {
             Status = ServerStatus.Start;
-            BeginAccept();
         }
 
         public bool Pause()

@@ -7,6 +7,7 @@ namespace BeetleX.EventArgs
 {
     public class ConnectingEventArgs : ServerEventArgs
     {
+       
         public System.Net.Sockets.Socket Socket
         {
             get;
@@ -15,7 +16,7 @@ namespace BeetleX.EventArgs
         public bool Cancel
         {
             get;
-            internal set;
+            set;
         }
     }
 

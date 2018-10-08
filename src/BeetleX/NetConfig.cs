@@ -14,8 +14,8 @@ namespace BeetleX
             ReceiveQueues = 2;
             SendQueues = 2;
             SendQueueEnabled = false;
-            MaxConnections = 10000;
-            MaxAcceptQueue = 10000;
+            MaxConnections = 0;
+            MaxAcceptQueue = 0;
             MaxAcceptThreads = 3;
             BufferSize = 1024 * 8;
             BufferPoolSize = 1024;
