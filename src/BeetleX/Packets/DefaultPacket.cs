@@ -215,7 +215,7 @@ namespace BeetleX.Packets
                 this.TypeHeader.WriteType(data, stream);
                 IList items = (IList)data;
                 if (items.Count > 0 && !(items[0] is IMessage))
-                    throw new BXException("item object not implement IMessage !");
+                    throw new BXException("{0} object not implement IMessage !", items[0].GetType());
                 stream.Write(items.Count);
                 foreach (IMessage item in items)
                 {
@@ -225,7 +225,7 @@ namespace BeetleX.Packets
             }
             else
             {
-                throw new BXException("object  not implement IMessage !");
+                throw new BXException("{0} not implement IMessage !", data.GetType());
             }
         }
     }
@@ -291,7 +291,7 @@ namespace BeetleX.Packets
                 this.TypeHeader.WriteType(data, stream);
                 IList items = (IList)data;
                 if (items.Count > 0 && !(items[0] is IMessage))
-                    throw new BXException("item object not implement IMessage !");
+                    throw new BXException("{0} object not implement IMessage !", items[0].GetType());
                 stream.Write(items.Count);
                 foreach (IMessage item in items)
                 {
@@ -300,7 +300,7 @@ namespace BeetleX.Packets
             }
             else
             {
-                throw new BXException("object  not implement IMessage !");
+                throw new BXException("{0}  not implement IMessage !",data.GetType());
             }
         }
     }

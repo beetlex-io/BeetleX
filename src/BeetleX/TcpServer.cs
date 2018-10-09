@@ -218,14 +218,16 @@ namespace BeetleX
                 ToInitialize();
                 Status = ServerStatus.Start;
                 Task.Run(() => BeginAccept());
-                Log(LogType.Info, null, "server start@{0}:{1}", Config.Host, Config.Port);
+                if (EnableLog(LogType.Info))
+                    Log(LogType.Info, null, "server start@{0}:{1}", Config.Host, Config.Port);
                 return true;
 
             }
             catch (Exception e_)
             {
                 Status = ServerStatus.StartError;
-                Error(e_, null, "server start error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, null, "server start error!");
             }
             return false;
         }
@@ -248,24 +250,33 @@ namespace BeetleX
         private static void SslAuthenticateAsyncCallback(IAsyncResult ar)
         {
             Tuple<TcpSession, SslStream> state = (Tuple<TcpSession, SslStream>)ar.AsyncState;
-            TcpServer server = (TcpServer)state.Item1.Server;
+            ISession session = state.Item1;
+            TcpServer server = (TcpServer)session.Server;
+
             try
             {
+                if (server.EnableLog(LogType.Debug))
+                    server.Log(LogType.Debug, session, "{0} end ssl Authenticate", session.RemoteEndPoint);
                 SslStream sslStream = state.Item2;
                 sslStream.EndAuthenticateAsServer(ar);
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
                 cead.Server = server;
-                cead.Session = state.Item1;
+                cead.Session = session;
                 server.OnConnected(cead);
                 server.BeginReceive(state.Item1);
+                if (server.EnableLog(LogType.Debug))
+                    server.Log(LogType.Debug, session, "{0} begin receive", session.RemoteEndPoint);
 
             }
             catch (Exception e_)
             {
-                state.Item1.Server.Error(e_, state.Item1, "create session ssl authenticate callback error {0}", e_.Message);
-                state.Item1.Dispose();
+                if (server.EnableLog(LogType.Error))
+                    server.Error(e_, state.Item1, "create session ssl authenticate callback error {0}", e_.Message);
+                session.Dispose();
             }
         }
+
+
 
         private void ConnectedProcess(System.Net.Sockets.Socket e)
         {
@@ -296,10 +307,14 @@ namespace BeetleX
                 cead.Session = session;
                 OnConnected(cead);
                 BeginReceive(session);
+                if (EnableLog(LogType.Debug))
+                    Log(LogType.Debug, session, "{0} begin receive", e.RemoteEndPoint);
             }
             else
             {
                 session.CreateSSL(SslAuthenticateAsyncCallback);
+                if (EnableLog(LogType.Debug))
+                    Log(LogType.Debug, session, "{0} begin ssl Authenticate", e.RemoteEndPoint);
             }
         }
 
@@ -313,24 +328,28 @@ namespace BeetleX
                 OnConnecting(cea);
                 if (cea.Cancel)
                 {
+                    if (EnableLog(LogType.Debug))
+                        Log(LogType.Debug, null, "cancel {0} connect", e.RemoteEndPoint);
                     CloseSocket(e);
+
                 }
                 else
                 {
-
                     ConnectedProcess(e);
+                    if (EnableLog(LogType.Debug))
+                        Log(LogType.Debug, null, "{0} connected", e.RemoteEndPoint);
                 }
             }
             catch (Exception e_)
             {
-                Error(e_, null, "accept socket process error");
+                if (EnableLog(LogType.Error))
+                    Error(e_, null, "accept socket process error");
             }
 
 
         }
 
         private Dispatchs.MultiThreadDispatcher<Socket> mAcceptDispatcher;
-
 
         private void BeginAccept()
         {
@@ -348,12 +367,15 @@ namespace BeetleX
                         break;
                     }
                     var acceptSocket = mSocket.Accept();
+                    if (EnableLog(LogType.Debug))
+                        Log(LogType.Debug, null, "{0} socket accept", acceptSocket.RemoteEndPoint);
                     mAcceptDispatcher.Enqueue(acceptSocket);
                 }
             }
             catch (Exception e_)
             {
-                Error(e_, null, "server accept error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, null, "server accept error!");
                 Status = ServerStatus.AcceptError;
             }
 
@@ -382,7 +404,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, null, "{0} session packet process message event error !", session.RemoteEndPoint);
+                if (EnableLog(LogType.Error))
+                    Error(e_, session, "{0} session packet process message event error !", session.RemoteEndPoint);
             }
         }
 
@@ -393,13 +416,13 @@ namespace BeetleX
             Buffers.Buffer buffer = (Buffers.Buffer)mReceiveBufferPool.Pop();
             try
             {
-
                 buffer.AsyncFrom(session);
             }
             catch (Exception e_)
             {
                 buffer.Free();
-                Error(e_, session, "session receive data error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, session, "session receive data error!");
             }
         }
 
@@ -409,12 +432,10 @@ namespace BeetleX
             if (ex.IsReceive)
             {
                 ReceiveCompleted(e);
-
             }
             else
             {
                 SendCompleted(e);
-
             }
         }
 
@@ -442,6 +463,12 @@ namespace BeetleX
             {
                 if (e.SocketError == System.Net.Sockets.SocketError.Success && e.BytesTransferred > 0)
                 {
+                    if (session.Server.EnableLog(LogType.Debug))
+                    {
+                        session.Server.Log(LogType.Debug, session, "{0} receive hex:{1}", session.RemoteEndPoint,
+                             BitConverter.ToString(e.Buffer, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                            );
+                    }
                     if (session.Server.Config.ReceiveQueueEnabled)
                     {
                         ((TcpSession)session).ReceiveDispatcher.Enqueue(ex);
@@ -456,14 +483,14 @@ namespace BeetleX
                 else
                 {
                     session.Dispose();
-
                     ex.BufferX.Free();
                 }
 
             }
             catch (Exception e_)
             {
-                Error(e_, ex.Session, "receive data completed SocketError {0}!", e.SocketError);
+                if (EnableLog(LogType.Error))
+                    Error(e_, ex.Session, "receive data completed SocketError {0}!", e.SocketError);
             }
 
         }
@@ -477,6 +504,12 @@ namespace BeetleX
             {
                 if (e.SocketError == SocketError.IOPending || e.SocketError == SocketError.Success)
                 {
+                    if (session.Server.EnableLog(LogType.Debug))
+                    {
+                        session.Server.Log(LogType.Debug, session, "{0} send hex:{1}", session.RemoteEndPoint,
+                             BitConverter.ToString(e.Buffer, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                            );
+                    }
                     if (this.Config.Statistical)
                     {
                         System.Threading.Interlocked.Increment(ref mSendQuantity);
@@ -506,9 +539,9 @@ namespace BeetleX
                                 }
                                 catch (Exception ce_)
                                 {
-                                    Error(ce_, ex.Session, "send data completed process handler error {0}!", ce_.Message);
+                                    if (EnableLog(LogType.Error))
+                                        Error(ce_, ex.Session, "send data completed process handler error {0}!", ce_.Message);
                                 }
-
                             }
                             ((TcpSession)session).SendCompleted();
                         }
@@ -522,7 +555,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, ex.Session, "send data completed SocketError {0}!", e.SocketError);
+                if (EnableLog(LogType.Error))
+                    Error(e_, ex.Session, "send data completed SocketError {0}!", e.SocketError);
             }
 
         }
@@ -539,7 +573,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, null, "session detection process error");
+                if (EnableLog(LogType.Error))
+                    Error(e_, null, "session detection process error");
             }
         }
 
@@ -555,7 +590,8 @@ namespace BeetleX
                 }
                 catch (Exception e_)
                 {
-                    Error(e_, e.Session, "{0} session  buffer decoding error! ", e.Session.RemoteEndPoint);
+                    if (EnableLog(LogType.Error))
+                        Error(e_, e.Session, "{0} session  buffer decoding error! ", e.Session.RemoteEndPoint);
                     e.Session.Dispose();
                 }
             }
@@ -568,7 +604,8 @@ namespace BeetleX
                 }
                 catch (Exception e_)
                 {
-                    Error(e_, e.Session, "{0} session  buffer process error! ", e.Session.RemoteEndPoint);
+                    if (EnableLog(LogType.Error))
+                        Error(e_, e.Session, "{0} session  buffer process error! ", e.Session.RemoteEndPoint);
                 }
             }
 
@@ -580,12 +617,16 @@ namespace BeetleX
             {
                 if (Handler != null)
                 {
+                    if (EnableLog(LogType.Debug))
+                        Log(LogType.Debug, e.Session, "{0} session packet decode completed {1}", e.Session.RemoteEndPoint, e.Message.GetType());
                     Handler.SessionPacketDecodeCompleted(this, e);
+                   
                 }
             }
             catch (Exception e_)
             {
-                Error(e_, null, "{0} session packet  message process error !", e.Session.RemoteEndPoint);
+                if (EnableLog(LogType.Error))
+                    Error(e_, e.Session, "{0} session packet  message process error !", e.Session.RemoteEndPoint);
             }
         }
 
@@ -598,7 +639,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, null, "Server session connecting process error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, null, "Server session connecting process error!");
             }
         }
 
@@ -613,7 +655,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, e.Session, "Server session connected process error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, e.Session, "Server session connected process error!");
             }
         }
 
@@ -626,7 +669,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, session, "Server log process error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, session, "Server log process error!");
             }
 
         }
@@ -664,7 +708,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Error(e_, session, "close session error!");
+                if (EnableLog(LogType.Error))
+                    Error(e_, session, "close session error!");
             }
             finally
             {
@@ -742,7 +787,8 @@ namespace BeetleX
             {
                 if (this.Packet == null)
                 {
-                    Error(new BXException("server message formater is null!"), null, "server message formater is null!");
+                    if (EnableLog(LogType.Error))
+                        Error(new BXException("server message formater is null!"), null, "server message formater is null!");
                 }
                 else
                 {
@@ -815,33 +861,36 @@ namespace BeetleX
         public override string ToString()
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, string.IsNullOrEmpty(this.Config.Host) ? "0.0.0.0" : this.Config.Host, this.Config.Port);
-            sb.AppendFormat("Connections:{0}     Buffers:{1}\r\n",
-                Count.ToString("###,###,##0").PadLeft(15),
-                BufferPool.Count.ToString("###,###,##0").PadLeft(7));
-
-            if (mAcceptDispatcher != null)
+            if (this.Status == ServerStatus.Start)
             {
-                sb.AppendFormat("AcceptQueue:{0}     Threads:{1}\r\n",
-                   mAcceptDispatcher.Count.ToString("###,###,##0").PadLeft(15),
-                   mAcceptDispatcher.Threads.ToString("###,###,##0").PadLeft(2));
+                sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, string.IsNullOrEmpty(this.Config.Host) ? "0.0.0.0" : this.Config.Host, this.Config.Port);
+                sb.AppendFormat("Connections:{0}     Buffers:{1}\r\n",
+                    Count.ToString("###,###,##0").PadLeft(15),
+                    BufferPool.Count.ToString("###,###,##0").PadLeft(7));
+
+                if (mAcceptDispatcher != null)
+                {
+                    sb.AppendFormat("AcceptQueue:{0}     Threads:{1}\r\n",
+                       mAcceptDispatcher.Count.ToString("###,###,##0").PadLeft(15),
+                       mAcceptDispatcher.Threads.ToString("###,###,##0").PadLeft(2));
+                }
+
+                sb.AppendFormat("IO  Receive:{0}/s   Send:{1}/s\r\n",
+                (ReceiveQuantity - mLastReceive).ToString("###,###,##0").PadLeft(15),
+                (SendQuantity - mLastSend).ToString("###,###,##0").PadLeft(15));
+                mLastReceive = ReceiveQuantity;
+                mLastSend = SendQuantity;
+
+                sb.AppendFormat("IO  Receive:{0}     Send:{1}\r\n",
+                    ReceiveQuantity.ToString("###,###,##0").PadLeft(15),
+                    SendQuantity.ToString("###,###,##0").PadLeft(15));
+
+
+                sb.AppendFormat("BW  Receive:{0}KB   Send:{1}KB\r\n",
+                    (ReceivBytes / 1024).ToString("###,###,##0").PadLeft(15),
+                    (SendBytes / 1024).ToString("###,###,##0").PadLeft(15));
+                sb.AppendLine("");
             }
-
-            sb.AppendFormat("IO  Receive:{0}/s   Send:{1}/s\r\n",
-            (ReceiveQuantity - mLastReceive).ToString("###,###,##0").PadLeft(15),
-            (SendQuantity - mLastSend).ToString("###,###,##0").PadLeft(15));
-            mLastReceive = ReceiveQuantity;
-            mLastSend = SendQuantity;
-
-            sb.AppendFormat("IO  Receive:{0}     Send:{1}\r\n",
-                ReceiveQuantity.ToString("###,###,##0").PadLeft(15),
-                SendQuantity.ToString("###,###,##0").PadLeft(15));
-
-
-            sb.AppendFormat("BW  Receive:{0}KB   Send:{1}KB\r\n",
-                (ReceivBytes / 1024).ToString("###,###,##0").PadLeft(15),
-                (SendBytes / 1024).ToString("###,###,##0").PadLeft(15));
-            sb.AppendLine("");
             return sb.ToString();
         }
 
@@ -853,6 +902,11 @@ namespace BeetleX
                     return mSessions[id];
                 return null;
             }
+        }
+
+        public bool EnableLog(LogType logType)
+        {
+            return (int)(this.Config.LogLevel) <= (int)logType;
         }
     }
 }

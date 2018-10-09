@@ -624,7 +624,6 @@ namespace BeetleX.Buffers
 
         [ThreadStatic]
         private static byte[] mReadFreeBuffer;
-
         public void ReadFree(int length)
         {
             int bufferlen = 512;
@@ -643,6 +642,8 @@ namespace BeetleX.Buffers
                 {
                     len = Read(mReadFreeBuffer, 0, length);
                 }
+                if (len == 0)
+                    break;
                 length -= len;
             }
         }

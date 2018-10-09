@@ -25,7 +25,10 @@ namespace BeetleX
             Combined = 0;
             Statistical = true;
             SSL = false;
+            LogLevel = EventArgs.LogType.Warring;
         }
+
+        public EventArgs.LogType LogLevel { get; set; }
 
         public int MaxAcceptThreads { get; set; }
 

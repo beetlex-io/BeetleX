@@ -46,6 +46,8 @@ namespace BeetleX
             set;
         }
 
+        bool EnableLog(EventArgs.LogType logType);
+
         ISession GetSession(long id);
 
         ServerStatus Status { get; set; }

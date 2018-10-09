@@ -315,7 +315,8 @@ namespace BeetleX
             catch (Exception e_)
             {
                 Buffers.Buffer.Free(buffer);
-                Server.Error(e_, this, "session send data error!");
+                if (Server.EnableLog(EventArgs.LogType.Error))
+                    Server.Error(e_, this, "{0} session send data error {1}!", this.RemoteEndPoint, e_.Message);
             }
         }
 
@@ -415,7 +416,8 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                Server.Error(e_, this, "create session ssl error {0}", e_.Message);
+                if (Server.EnableLog(EventArgs.LogType.Error))
+                    Server.Error(e_, this, "{1} create session ssl error {0}", e_.Message,this.RemoteEndPoint);
                 this.Dispose();
             }
         }
