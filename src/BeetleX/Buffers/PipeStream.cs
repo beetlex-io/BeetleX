@@ -376,16 +376,50 @@ namespace BeetleX.Buffers
             Buffer.Free(mWriteFirstBuffer);
             mWriteFirstBuffer = null;
             mWriteLastBuffer = null;
+
         }
+
+
+
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
-            if (!mIsDispose)
+            if (mFreeState)
             {
-                OnDisposed();
-                mIsDispose = true;
+                base.Dispose(disposing);
+                if (!mIsDispose)
+                {
+                    OnDisposed();
+                    mIsDispose = true;
+                }
             }
+        }
+
+        private bool mFreeState = true;
+
+        public IDisposable LockFree()
+        {
+            mFreeState = false;
+            return new LockFreeImpl(this);
+        }
+
+        class LockFreeImpl : IDisposable
+        {
+            public LockFreeImpl(PipeStream stream)
+            {
+                mStream = stream;
+            }
+
+            private PipeStream mStream;
+            public void Dispose()
+            {
+                mStream.UnLockFree();
+            }
+        }
+
+        public void UnLockFree()
+        {
+            mFreeState = true;
         }
 
         public MemoryBlockCollection Allocate(int size)

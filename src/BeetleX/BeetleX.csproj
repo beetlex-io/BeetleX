@@ -5,9 +5,9 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
-    <Version>1.0.3.0</Version>
+    <AssemblyVersion>1.0.3.1</AssemblyVersion>
+    <FileVersion>1.0.3.1</FileVersion>
+    <Version>1.0.3.2</Version>
     <Description>dotnet core high performance socket tcp communication components support SSL
 </Description>
     <Copyright>Copyright © henryfan 2018 email:henryfan@msn.com</Copyright>
