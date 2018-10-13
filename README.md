@@ -1,6 +1,7 @@
 # BeetleX
 beetleX是基于dotnet core实现的轻量级高性能的TCP通讯组件，使用方便、性能高效和安全可靠是组件设计的出发点！开发人员可以在Beetlx组件的支持下快带地构建高性能的TCP通讯服务程序，在安全通讯方面只需要简单地设置一下SSL信息即可实现可靠安全的SSL服务。
-##### 高效精简的HTTP服务扩展 [FastHttpApi](https://github.com/IKende/FastHttpApi) 在API服务场景效率远高于asp.net core Kestrel
+
+### [基于BeetleX实现的官网](http://www.ikend.com)
 
 ### 使用方便性
 beetleX网络流读写是基于Stream标准来构建，仅仅基于Stream的基础读写对于应用者来说还是过于繁琐；组件为了更方便进行网络数据处理在Stream的基础之上扩展了一系列的读写规则：ReadLine、ReadInt、WriteLine、WriteInt等一系列简便方法，在这些方法的支持下使用者就可以更轻松地处理数据；为了在网络通讯中更好的兼容其他平台协议以上方法都兼容Big-Endian和Little-Endian不同方式。为了更好地利用现有序列化组件，组件通过IPacket接口规范消息扩展，通过实现不同的Packet解释器，即可以实现基于Protobuf,json和Msgpack等方式的对象数据传输。
