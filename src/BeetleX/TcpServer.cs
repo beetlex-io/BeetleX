@@ -306,9 +306,10 @@ namespace BeetleX
                 cead.Server = this;
                 cead.Session = session;
                 OnConnected(cead);
-                BeginReceive(session);
                 if (EnableLog(LogType.Debug))
                     Log(LogType.Debug, session, "{0} begin receive", e.RemoteEndPoint);
+                BeginReceive(session);
+               
             }
             else
             {
@@ -540,7 +541,7 @@ namespace BeetleX
                                 catch (Exception ce_)
                                 {
                                     if (EnableLog(LogType.Error))
-                                        Error(ce_, ex.Session, "send data completed process handler error {0}!", ce_.Message);
+                                        Error(ce_, ex.Session, "{0} send data completed process handler error {1}!",ex.Session.RemoteEndPoint,  ce_.Message);
                                 }
                             }
                             ((TcpSession)session).SendCompleted();

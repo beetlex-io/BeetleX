@@ -564,49 +564,53 @@ namespace BeetleX.Buffers
 
         public void AsyncFrom(System.Net.Sockets.Socket socket)
         {
-            mSAEA.IsReceive = true;
-            mSAEA.UserToken = UserToken;
-            mSAEA.SetBuffer(0, mSize);
-            if (!socket.ReceiveAsync(mSAEA))
-            {
+            //mSAEA.IsReceive = true;
+            //mSAEA.UserToken = UserToken;
+            //mSAEA.SetBuffer(0, mSize);
+            //if (!socket.ReceiveAsync(mSAEA))
+            //{
 
-                mSAEA.InvokeCompleted();
-            }
+            //    mSAEA.InvokeCompleted();
+            //}
+            mSAEA.AsyncFrom(socket, UserToken, mSize);
         }
 
         public void AsyncFrom(ISession session)
         {
-            mSAEA.IsReceive = true;
-            mSAEA.UserToken = UserToken;
-            mSAEA.Session = session;
-            mSAEA.SetBuffer(0, mSize);
-            if (!session.Socket.ReceiveAsync(mSAEA))
-            {
-                mSAEA.InvokeCompleted();
-            }
+            //mSAEA.IsReceive = true;
+            //mSAEA.UserToken = UserToken;
+            //mSAEA.Session = session;
+            //mSAEA.SetBuffer(0, mSize);
+            //if (!session.Socket.ReceiveAsync(mSAEA))
+            //{
+            //    mSAEA.InvokeCompleted();
+            //}
+            mSAEA.AsyncFrom(session, UserToken, mSize);
         }
 
         public void AsyncTo(System.Net.Sockets.Socket socket)
         {
-            mSAEA.IsReceive = false;
-            mSAEA.UserToken = UserToken;
-            mSAEA.SetBuffer(0, mLength);
-            if (!socket.SendAsync(mSAEA))
-            {
-                mSAEA.InvokeCompleted();
-            }
+            //mSAEA.IsReceive = false;
+            //mSAEA.UserToken = UserToken;
+            //mSAEA.SetBuffer(0, mLength);
+            //if (!socket.SendAsync(mSAEA))
+            //{
+            //    mSAEA.InvokeCompleted();
+            //}
+            mSAEA.AsyncTo(socket, UserToken, mLength);
         }
 
         public void AsyncTo(ISession session)
         {
-            mSAEA.IsReceive = false;
-            mSAEA.SetBuffer(0, mLength);
-            mSAEA.Session = session;
-            mSAEA.UserToken = UserToken;
-            if (!session.Socket.SendAsync(mSAEA))
-            {
-                mSAEA.InvokeCompleted();
-            }
+            //mSAEA.IsReceive = false;
+            //mSAEA.SetBuffer(0, mLength);
+            //mSAEA.Session = session;
+            //mSAEA.UserToken = UserToken;
+            //if (!session.Socket.SendAsync(mSAEA))
+            //{
+            //    mSAEA.InvokeCompleted();
+            //}
+            mSAEA.AsyncTo(session, UserToken, mLength);
         }
 
         internal static void Free(IBuffer buffer)
