@@ -148,20 +148,26 @@ namespace BeetleX.Dispatchs
                 int addthread = Interlocked.Increment(ref mThreads);
                 if (addthread == 1)
                 {
-                     ThreadPool.QueueUserWorkItem(OnRun);
+                    Task.Run(new Action(OnRun));
+                     //ThreadPool.QueueUserWorkItem(OnRun);
                 }
                 else
                 {
-                    if (addthread > mMaxThreads || mCount< mWaitLength)
+                    if (addthread > mMaxThreads || mCount < mWaitLength)
                     {
                         Interlocked.Decrement(ref mThreads);
                     }
                     else
-                    {                     
-                        ThreadPool.QueueUserWorkItem(OnRun);
+                    {
+                        Task.Run(new Action(OnRun));
+                        //ThreadPool.QueueUserWorkItem(OnRun);
                     }
                 }
             }
+        }
+        private void OnRun()
+        {
+            OnRun(null);
         }
 
         private void OnRun(object state)
@@ -189,7 +195,7 @@ namespace BeetleX.Dispatchs
                     break;
                 }
             }
-         
+
             Interlocked.Decrement(ref mThreads);
             InvokeProcess();
         }

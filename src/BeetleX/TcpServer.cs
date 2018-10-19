@@ -309,7 +309,7 @@ namespace BeetleX
                 if (EnableLog(LogType.Debug))
                     Log(LogType.Debug, session, "{0} begin receive", e.RemoteEndPoint);
                 BeginReceive(session);
-               
+
             }
             else
             {
@@ -541,7 +541,7 @@ namespace BeetleX
                                 catch (Exception ce_)
                                 {
                                     if (EnableLog(LogType.Error))
-                                        Error(ce_, ex.Session, "{0} send data completed process handler error {1}!",ex.Session.RemoteEndPoint,  ce_.Message);
+                                        Error(ce_, ex.Session, "{0} send data completed process handler error {1}!", ex.Session.RemoteEndPoint, ce_.Message);
                                 }
                             }
                             ((TcpSession)session).SendCompleted();
@@ -621,7 +621,7 @@ namespace BeetleX
                     if (EnableLog(LogType.Debug))
                         Log(LogType.Debug, e.Session, "{0} session packet decode completed {1}", e.Session.RemoteEndPoint, e.Message.GetType());
                     Handler.SessionPacketDecodeCompleted(this, e);
-                   
+
                 }
             }
             catch (Exception e_)
@@ -763,7 +763,9 @@ namespace BeetleX
 
         public bool[] Send(object message, params ISession[] sessions)
         {
-            return Send(message, new ArraySegment<ISession>(sessions, 0, sessions.Length));
+            if (sessions != null && sessions.Length > 0)
+                return Send(message, new ArraySegment<ISession>(sessions, 0, sessions.Length));
+            return new bool[] { false };
 
         }
 
@@ -841,16 +843,21 @@ namespace BeetleX
 
         private OnlineSegment mOnlines = new OnlineSegment();
 
+        private int mGetOnlinesStatus = 0;
+
         public ISession[] GetOnlines()
         {
-            lock (mSessions)
+            if (mOnlines.Version != this.Version)
             {
-                if (mOnlines.Version != this.Version)
+                if (System.Threading.Interlocked.CompareExchange(ref mGetOnlinesStatus, 1, 0) == 0)
                 {
-                    mOnlines.Arrays = mSessions.Values.ToArray();
-                    mOnlines.Version = this.Version;
+                    if (mOnlines.Version != this.Version)
+                    {
+                        mOnlines.Arrays = mSessions.Values.ToArray();
+                        mOnlines.Version = this.Version;
+                    }
+                    System.Threading.Interlocked.Exchange(ref mGetOnlinesStatus, 0);
                 }
-
             }
             return mOnlines.Arrays;
         }
