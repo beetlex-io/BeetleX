@@ -7,7 +7,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using BeetleX.Buffers;
 using BeetleX.EventArgs;
-
+using System.Collections.Concurrent;
 namespace BeetleX
 {
     class TcpServer : IServer
@@ -41,7 +41,7 @@ namespace BeetleX
 
         private Buffers.BufferPool mReceiveBufferPool;
 
-        private Dictionary<long, ISession> mSessions;
+        private ConcurrentDictionary<long, ISession> mSessions;
 
         private long mReceivBytes;
 
@@ -144,10 +144,8 @@ namespace BeetleX
 
         private void AddSession(ISession session)
         {
-            lock (mSessions)
-            {
-                mSessions[session.ID] = session;
-            }
+
+            mSessions[session.ID] = session;
             System.Threading.Interlocked.Increment(ref mVersion);
         }
 
@@ -160,13 +158,16 @@ namespace BeetleX
 
         private void RemoveSession(ISession session)
         {
-            lock (mSessions)
-            {
-                if (mSessions.ContainsKey(session.ID))
-                {
-                    mSessions.Remove(session.ID);
-                }
-            }
+            ISession value;
+            mSessions.TryRemove(session.ID, out value);
+
+            //lock (mSessions)
+            //{
+            //    if (mSessions.ContainsKey(session.ID))
+            //    {
+            //        mSessions.Remove(session.ID);
+            //    }
+            //}
             System.Threading.Interlocked.Increment(ref mVersion);
         }
 
@@ -188,7 +189,7 @@ namespace BeetleX
                 }
                 mBufferPool = new BufferPool(Config.BufferSize, Config.BufferPoolSize, IO_Completed);
                 mReceiveBufferPool = new BufferPool(Config.BufferSize, 1024, IO_Completed);
-                mSessions = new Dictionary<long, ISession>(Config.MaxConnections * 2);
+                mSessions = new ConcurrentDictionary<long, ISession>(); //new Dictionary<long, ISession>(Config.MaxConnections * 2);
                 mInitialized = true;
                 mWatch.Restart();
                 mSessionDetector.Timeout = OnSessionDetection;
@@ -851,12 +852,18 @@ namespace BeetleX
             {
                 if (System.Threading.Interlocked.CompareExchange(ref mGetOnlinesStatus, 1, 0) == 0)
                 {
-                    if (mOnlines.Version != this.Version)
+                    try
                     {
-                        mOnlines.Arrays = mSessions.Values.ToArray();
-                        mOnlines.Version = this.Version;
+                        if (mOnlines.Version != this.Version)
+                        {
+                            mOnlines.Arrays = mSessions.Values.ToArray();
+                            mOnlines.Version = this.Version;
+                        }
                     }
-                    System.Threading.Interlocked.Exchange(ref mGetOnlinesStatus, 0);
+                    finally
+                    {
+                        System.Threading.Interlocked.Exchange(ref mGetOnlinesStatus, 0);
+                    }
                 }
             }
             return mOnlines.Arrays;
