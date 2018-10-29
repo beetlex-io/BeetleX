@@ -8,6 +8,10 @@ beetleX网络流读写是基于Stream标准来构建，仅仅基于Stream的基�
 ### 高性能特性
 beetleX的高性能是建立在内部一个数据流处理对象PipeStream，它是构建在Stream标准之上；它和.NET内置的NetworkStream最大的差别是PipeStream的读写基于SocketAsyncEventArgs实现，这正是在编写高性能网络数据处理所提倡的模式。PipeStream不仅在网络数据处理模式上有着性能的优势，在内存读写上和MemoryStream也有着很大的区别；由于PipeStream的内存块是以一个基于链表的SocketAsyncEventArgs Buffer 组成，因此PipeStream在写入大数据的情况并不存在内存扩容和复制的问题；因为PipeStream基础内存是SocketAsyncEventArgs Buffer，所以在数据和网络缓存读写并不存在内存块复制过程。如果在应用中中使用PipeStream相应的BinaryReader和IBinaryWriter读写规范，那大部分数据处理基本不存在内存复制过程，从而让数据处理性能更高效。
 
+ [BeetleX实现单服千万级消息推送](http://www.ikende.com/Doc/1d887337760a47678be21ac9fb443d25.html)
+
+[BeetleX实现单服务百万RPS吞吐](http://www.ikende.com/Doc/1ac8ead7308a485fa2ec6f83349b6b68.html)
+
 以下是PipeStream的结构：
 ![PipeStream](https://i.imgur.com/16wjO0R.png) 
 
