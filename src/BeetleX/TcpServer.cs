@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using BeetleX.Buffers;
 using BeetleX.EventArgs;
 using System.Collections.Concurrent;
+using System.Runtime;
+
 namespace BeetleX
 {
     class TcpServer : IServer
@@ -27,6 +29,8 @@ namespace BeetleX
 
         private Socket mSocket;
 
+        private int mCount;
+
         private Dispatchs.DispatchCenter<SocketAsyncEventArgsX> mReceiveDispatchCenter = null;
 
         private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
@@ -34,12 +38,6 @@ namespace BeetleX
         private long mVersion = 0;
 
         private bool mInitialized = false;
-
-        private Queue<SocketAsyncEventArgs> mSEAES = new Queue<SocketAsyncEventArgs>();
-
-        private Buffers.BufferPool mBufferPool;
-
-        private Buffers.BufferPool mReceiveBufferPool;
 
         private ConcurrentDictionary<long, ISession> mSessions;
 
@@ -115,11 +113,11 @@ namespace BeetleX
             }
         }
 
-        public IBufferPool BufferPool
+        public BufferPoolGroup BufferPool
         {
             get
             {
-                return mBufferPool;
+                return mBufferPoolGroup;
             }
         }
 
@@ -135,17 +133,19 @@ namespace BeetleX
             {
                 if (mSessions == null)
                     return 0;
-                return mSessions.Count;
+                return mCount;
             }
         }
         private X509Certificate2 mCertificate;
+
+        private Buffers.BufferPoolGroup mBufferPoolGroup;
 
         public X509Certificate2 Certificate => mCertificate;
 
         private void AddSession(ISession session)
         {
-
             mSessions[session.ID] = session;
+            System.Threading.Interlocked.Increment(ref mCount);
             System.Threading.Interlocked.Increment(ref mVersion);
         }
 
@@ -160,14 +160,7 @@ namespace BeetleX
         {
             ISession value;
             mSessions.TryRemove(session.ID, out value);
-
-            //lock (mSessions)
-            //{
-            //    if (mSessions.ContainsKey(session.ID))
-            //    {
-            //        mSessions.Remove(session.ID);
-            //    }
-            //}
+            System.Threading.Interlocked.Decrement(ref mCount);
             System.Threading.Interlocked.Increment(ref mVersion);
         }
 
@@ -177,24 +170,20 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-                if (Config.ReceiveQueueEnabled)
-                {
-                    mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs, Config.ReceiveQueues);
-                    mReceiveDispatchCenter.Start();
-                }
+
+                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs,
+                    Math.Min(Environment.ProcessorCount, 16));
+                mBufferPoolGroup = new BufferPoolGroup(Config.BufferSize, Config.BufferPoolSize, Math.Min(Environment.ProcessorCount, 16), IO_Completed);
                 if (Config.SendQueueEnabled)
                 {
                     mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Config.SendQueues);
-                    mSendDispatchCenter.Start();
                 }
-                mBufferPool = new BufferPool(Config.BufferSize, Config.BufferPoolSize, IO_Completed);
-                mReceiveBufferPool = new BufferPool(Config.BufferSize, 1024, IO_Completed);
                 mSessions = new ConcurrentDictionary<long, ISession>(); //new Dictionary<long, ISession>(Config.MaxConnections * 2);
                 mInitialized = true;
                 mWatch.Restart();
                 mSessionDetector.Timeout = OnSessionDetection;
                 mSessionDetector.Server = this;
-                mAcceptDispatcher = new Dispatchs.MultiThreadDispatcher<Socket>(AcceptProcess, 10, Config.MaxAcceptThreads);
+                mAcceptDispatcher = new Dispatchs.MultiThreadDispatcher<Socket>(AcceptProcess, 10, Math.Min(Environment.ProcessorCount, 16));
 
             }
         }
@@ -219,6 +208,11 @@ namespace BeetleX
                 ToInitialize();
                 Status = ServerStatus.Start;
                 Task.Run(() => BeginAccept());
+                if (!GCSettings.IsServerGC)
+                {
+                    if (EnableLog(LogType.Warring))
+                        Log(LogType.Warring, null, "not is ServerGC mode! setting ServerGC:\"configProperties\": {\"System.GC.Server\": true}");
+                }
                 if (EnableLog(LogType.Info))
                     Log(LogType.Info, null, "server start@{0}:{1}", Config.Host, Config.Port);
                 return true;
@@ -283,6 +277,7 @@ namespace BeetleX
         {
             TcpSession session = new TcpSession();
             session.Socket = e;
+            session.BufferPool = this.BufferPool.Next();
             session.SSL = Config.SSL;
             session.Initialization(this, null);
             session.LittleEndian = Config.LittleEndian;
@@ -292,10 +287,8 @@ namespace BeetleX
                 session.Packet = this.Packet.Clone();
                 session.Packet.Completed = OnPacketDecodeCompleted;
             }
-            if (Config.ReceiveQueueEnabled)
-            {
-                session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
-            }
+
+            session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
             if (Config.SendQueueEnabled)
             {
                 session.SendDispatcher = mSendDispatchCenter.Next();
@@ -391,31 +384,11 @@ namespace BeetleX
             ((TcpSession)session).ProcessSendMessages();
         }
 
-        private void SessionReceivePacket(ISession session)
-        {
-            TcpSession tcpsession = (TcpSession)session;
-
-            try
-            {
-                if (Handler != null)
-                {
-
-                    if (!tcpsession.IsDisposed)
-                        Handler.SessionPacketDecodeCompleted(this, tcpsession.GetDecodeCompletedArgs());
-                }
-            }
-            catch (Exception e_)
-            {
-                if (EnableLog(LogType.Error))
-                    Error(e_, session, "{0} session packet process message event error !", session.RemoteEndPoint);
-            }
-        }
-
         private void BeginReceive(ISession session)
         {
             if (session.IsDisposed)
                 return;
-            Buffers.Buffer buffer = (Buffers.Buffer)mReceiveBufferPool.Pop();
+            Buffers.Buffer buffer = (Buffers.Buffer)session.BufferPool.Pop();
             try
             {
                 buffer.AsyncFrom(session);
@@ -445,16 +418,34 @@ namespace BeetleX
         {
             SocketAsyncEventArgsX ex = (SocketAsyncEventArgsX)e;
             ISession session = ex.Session;
-            if (this.Config.Statistical)
+            try
             {
-                System.Threading.Interlocked.Increment(ref mReceiveQuantity);
-                System.Threading.Interlocked.Add(ref mReceivBytes, e.BytesTransferred);
+                if (session.Server.EnableLog(LogType.Trace))
+                {
+                    session.Server.Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
+                         BitConverter.ToString(ex.BufferX.Bytes, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                        );
+                }
+                if (this.Config.Statistical)
+                {
+                    System.Threading.Interlocked.Increment(ref mReceiveQuantity);
+                    System.Threading.Interlocked.Add(ref mReceivBytes, e.BytesTransferred);
+                }
+                ex.BufferX.Postion = 0;
+                ex.BufferX.SetLength(e.BytesTransferred);
+                session.Receive(ex.BufferX);
+                if (session.SocketProcessHandler != null)
+                    session.SocketProcessHandler.ReceiveCompleted(session, e);
             }
-            ex.BufferX.Postion = 0;
-            ex.BufferX.SetLength(e.BytesTransferred);
-            session.Receive(ex.BufferX);
-            if (session.SocketProcessHandler != null)
-                session.SocketProcessHandler.ReceiveCompleted(session, e);
+            catch (Exception e_)
+            {
+                if (EnableLog(LogType.Error))
+                    Error(e_, ex.Session, "receive data completed SocketError {0}!", e.SocketError);
+            }
+            finally
+            {
+                BeginReceive(session);
+            }
         }
 
         private void ReceiveCompleted(SocketAsyncEventArgs e)
@@ -465,13 +456,7 @@ namespace BeetleX
             {
                 if (e.SocketError == System.Net.Sockets.SocketError.Success && e.BytesTransferred > 0)
                 {
-                    if (session.Server.EnableLog(LogType.Debug))
-                    {
-                        session.Server.Log(LogType.Debug, session, "{0} receive hex:{1}", session.RemoteEndPoint,
-                             BitConverter.ToString(e.Buffer, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
-                            );
-                    }
-                    if (session.Server.Config.ReceiveQueueEnabled)
+                    if (session.Server.Config.IOQueueEnabled)
                     {
                         ((TcpSession)session).ReceiveDispatcher.Enqueue(ex);
                     }
@@ -479,7 +464,6 @@ namespace BeetleX
                     {
                         ProcessReceiveArgs(e);
                     }
-                    BeginReceive(session);
 
                 }
                 else
@@ -487,7 +471,6 @@ namespace BeetleX
                     session.Dispose();
                     ex.BufferX.Free();
                 }
-
             }
             catch (Exception e_)
             {
@@ -506,10 +489,10 @@ namespace BeetleX
             {
                 if (e.SocketError == SocketError.IOPending || e.SocketError == SocketError.Success)
                 {
-                    if (session.Server.EnableLog(LogType.Debug))
+                    if (session.Server.EnableLog(LogType.Trace))
                     {
-                        session.Server.Log(LogType.Debug, session, "{0} send hex:{1}", session.RemoteEndPoint,
-                             BitConverter.ToString(e.Buffer, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                        session.Server.Log(LogType.Trace, session, "{0} send hex:{1}", session.RemoteEndPoint,
+                             BitConverter.ToString(ex.BufferX.Bytes, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
                             );
                     }
                     if (this.Config.Statistical)
@@ -879,9 +862,8 @@ namespace BeetleX
             if (this.Status == ServerStatus.Start)
             {
                 sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, string.IsNullOrEmpty(this.Config.Host) ? "0.0.0.0" : this.Config.Host, this.Config.Port);
-                sb.AppendFormat("Connections:{0}     Buffers:{1}\r\n",
-                    Count.ToString("###,###,##0").PadLeft(15),
-                    BufferPool.Count.ToString("###,###,##0").PadLeft(7));
+                sb.AppendFormat("Connections:{0}    \r\n",
+                    Count.ToString("###,###,##0").PadLeft(15));
 
                 if (mAcceptDispatcher != null)
                 {

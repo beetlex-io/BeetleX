@@ -15,7 +15,7 @@ namespace BeetleX
         NetConfig Config
         { get; set; }
 
-        Buffers.IBufferPool BufferPool
+        Buffers.BufferPoolGroup BufferPool
         { get; }
 
         long Version { get; }

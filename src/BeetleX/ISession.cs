@@ -17,6 +17,8 @@ namespace BeetleX
     public interface ISession : IDisposable, IDetectorItem
     {
 
+        Buffers.BufferPool BufferPool { get; set; }
+
         void Initialization(IServer server, Action<ISession> setting);
 
         bool LittleEndian
@@ -34,10 +36,12 @@ namespace BeetleX
 
         object this[string key] { get; set; }
 
+        int Count { get; }
+
         System.Net.Sockets.Socket Socket
         { get; }
 
-        int SendMessages { get; }
+
 
         string Name { get; set; }
 

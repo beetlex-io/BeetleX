@@ -96,6 +96,7 @@ namespace BeetleX.Clients
             Encoding = Encoding.UTF8;
             this.LittleEndian = true;
             this.SSL = false;
+            BufferPool = BufferPool.ReceiveDefault;
         }
 
         public void Init(string host, int port, IClientPacket packet)
@@ -105,8 +106,14 @@ namespace BeetleX.Clients
             IPAddress[] ips = talk.Result;
             if (ips.Length == 0)
                 throw new BXException("get host's address error");
-            mIPAddress = ips[0];
-
+            foreach (IPAddress item in ips)
+            {
+                if (item.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    mIPAddress = item;
+                    break;
+                }
+            }
             mPort = port;
             if (packet != null)
             {
@@ -137,6 +144,8 @@ namespace BeetleX.Clients
         private SslStreamX mSslStream;
 
         private PipeStream mBaseNetworkStream;
+
+        public BufferPool BufferPool { get; set; }
 
         public bool LittleEndian { get; set; }
 
@@ -195,7 +204,7 @@ namespace BeetleX.Clients
                 mBaseNetworkStream.Dispose();
             if (mSslStream != null)
                 mSslStream.Dispose();
-            mBaseNetworkStream = new Buffers.PipeStream(ClientBufferPool.Pool, this.LittleEndian, this.Encoding);
+            mBaseNetworkStream = new Buffers.PipeStream(BufferPool, this.LittleEndian, this.Encoding);
             mBaseNetworkStream.Socket = mSocket;
             mBaseNetworkStream.Encoding = this.Encoding;
             mBaseNetworkStream.LittleEndian = this.LittleEndian;
@@ -207,7 +216,7 @@ namespace BeetleX.Clients
             }
             if (SSL)
             {
-                mSslStream = new SslStreamX(ClientBufferPool.Pool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
+                mSslStream = new SslStreamX(BufferPool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
                 var task = mSslStream.AuthenticateAsClientAsync(SslServiceName);
                 task.Wait();
             }
@@ -330,7 +339,7 @@ namespace BeetleX.Clients
         private System.IO.Stream GetReader()
         {
             Connect();
-            IBuffer buffer = BufferPool.Default.Pop();
+            IBuffer buffer = this.BufferPool.Pop();
             try
             {
                 ((Buffers.Buffer)buffer).From(Socket);
@@ -434,26 +443,10 @@ namespace BeetleX.Clients
     }
 
 
-    class ClientBufferPool
-    {
-        static ClientBufferPool()
-        {
-            mPool = new BufferPool(1024 * 8, 100, null);
-        }
-        private static BufferPool mPool;
-        public static BufferPool Pool
-        {
-            get
-            {
-                return mPool;
-            }
-        }
-    }
+
 
     public class AsyncTcpClient : IClient
     {
-
-
 
         public IClientSocketProcessHandler SocketProcessHandler
         {
@@ -478,7 +471,11 @@ namespace BeetleX.Clients
             this.Encoding = Encoding.UTF8;
             LittleEndian = true;
             ExecutionContextEnabled = false;
+            BufferPool = BufferPool.ReceiveDefault;
         }
+
+
+        public BufferPool BufferPool { get; set; }
 
         public Encoding Encoding
         {
@@ -499,7 +496,14 @@ namespace BeetleX.Clients
             IPAddress[] ips = talk.Result;
             if (ips.Length == 0)
                 throw new BXException("get host's address error");
-            mIPAddress = ips[0];
+            foreach (IPAddress item in ips)
+            {
+                if (item.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    mIPAddress = item;
+                    break;
+                }
+            }
             mPort = port;
             if (packet != null)
             {
@@ -697,7 +701,6 @@ namespace BeetleX.Clients
                         {
                             tcpclient.SendCompleted();
                         }
-
                     }
                 }
                 else
@@ -721,7 +724,7 @@ namespace BeetleX.Clients
         {
             if (IsConnected)
             {
-                Buffers.Buffer buffer = (Buffers.Buffer)BufferPool.ReceiveDefault.Pop();
+                Buffers.Buffer buffer = (Buffers.Buffer)BufferPool.Pop();
                 if (!buffer.BindIOCompleted)
                     buffer.BindIOEvent(IO_Completed);
                 buffer.UserToken = this;
@@ -785,6 +788,8 @@ namespace BeetleX.Clients
 
         public bool Connect()
         {
+            if (IsConnected)
+                return true;
             lock (this)
             {
                 mLastError = null;
@@ -802,7 +807,7 @@ namespace BeetleX.Clients
                         mSocket.SendTimeout = TimeOut;
                         mConnected = true;
                         mLastError = null;
-                        mBaseNetworkStream = new PipeStream(ClientBufferPool.Pool, this.LittleEndian, this.Encoding);
+                        mBaseNetworkStream = new PipeStream(BufferPool, this.LittleEndian, this.Encoding);
                         mBaseNetworkStream.Socket = mSocket;
                         mBaseNetworkStream.Encoding = this.Encoding;
                         mBaseNetworkStream.LittleEndian = this.LittleEndian;
@@ -817,7 +822,7 @@ namespace BeetleX.Clients
                         }
                         if (SSL)
                         {
-                            mSslStream = new SslStreamX(ClientBufferPool.Pool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
+                            mSslStream = new SslStreamX(BufferPool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
                             var task = mSslStream.AuthenticateAsClientAsync(SslServiceName);
                             task.Wait();
                         }
@@ -852,19 +857,38 @@ namespace BeetleX.Clients
 
         private System.Collections.Concurrent.ConcurrentQueue<object> mSendMessageQueue = new System.Collections.Concurrent.ConcurrentQueue<object>();
 
+        private int mCount;
+
+        public int Count => mCount;
+
         private void EnqueueSendMessage(object data)
         {
+            System.Threading.Interlocked.Increment(ref mCount);
             mSendMessageQueue.Enqueue(data);
         }
 
         private object DequeueSendMessage()
         {
             object result;
-            mSendMessageQueue.TryDequeue(out result);
+            if (mSendMessageQueue.TryDequeue(out result))
+            {
+                System.Threading.Interlocked.Decrement(ref mCount);
+            }
             return result;
 
         }
 
+        public void SendBatch(System.Collections.IEnumerable items)
+        {
+            Connect();
+            if (!IsConnected)
+                throw mLastError;
+            foreach (object item in items)
+            {
+                EnqueueSendMessage(item);
+            }
+            ProcessSendMessages();
+        }
 
         public void Send(object data)
         {
@@ -898,8 +922,6 @@ namespace BeetleX.Clients
         private void ProcessSendMessages()
         {
             IBuffer[] items;
-            if (mSendMessageQueue.Count == 0)
-                return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
                 object data = DequeueSendMessage();

@@ -16,5 +16,9 @@ namespace BeetleX.Buffers
         public int EndPostion;
 
         public int Length;
+
+        public byte[] EofData;
+
+        public int EofIndex;
     }
 }

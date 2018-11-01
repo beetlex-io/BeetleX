@@ -7,6 +7,13 @@ namespace BeetleX.Buffers
 {
     class XSpinLock : IDisposable
     {
+        public XSpinLock()
+        {
+            mIsSingleProcessor = Environment.ProcessorCount == 1;
+        }
+
+        private bool mIsSingleProcessor;
+
         private int mStatus = 0;
 
         public IDisposable Enter()
@@ -18,16 +25,30 @@ namespace BeetleX.Buffers
                 {
                     break;
                 }
-                if (count > 10)
+                if (count > 10 || mIsSingleProcessor)
                 {
-                    Thread.Yield();
-
+                    int num = (count >= 10) ? (count - 10) : count;
+                    if (num % 20 == 19)
+                    {
+                        Thread.Sleep(1);
+                    }
+                    else
+                    {
+                        if (num % 5 == 4)
+                        {
+                            Thread.Sleep(0);
+                        }
+                        else
+                        {
+                            Thread.Yield();
+                        }
+                    }
                 }
                 else
                 {
                     Thread.SpinWait(4 << count);
                 }
-                count++;
+                count = ((count == 2147483647) ? 10 : (count + 1));
             }
 
             return this;
@@ -46,11 +67,34 @@ namespace BeetleX.Buffers
 
 
 
+
+
     public interface IBufferPool : IDisposable
     {
         IBuffer Pop();
         int Count { get; }
         void Push(IBuffer item);
+    }
+
+    public class BufferPoolGroup
+    {
+        private List<BufferPool> bufferPools = new List<BufferPool>();
+
+        private long mIndex = 1;
+
+        public BufferPoolGroup(int buffrsize, int count, int groups, EventHandler<System.Net.Sockets.SocketAsyncEventArgs> completed)
+        {
+            for (int i = 0; i < groups; i++)
+            {
+                bufferPools.Add(new BufferPool(buffrsize, count, completed));
+            }
+        }
+
+        public BufferPool Next()
+        {
+            long i = System.Threading.Interlocked.Increment(ref mIndex);
+            return bufferPools[(int)(i % bufferPools.Count)];
+        }
     }
 
     public class BufferPool : IBufferPool
@@ -86,7 +130,7 @@ namespace BeetleX.Buffers
             for (int i = 0; i < count; i++)
             {
                 item = CreateBuffer();
-                mPool.Enqueue(item);
+                mPool.Push(item);
             }
         }
 
@@ -107,12 +151,12 @@ namespace BeetleX.Buffers
             return item;
         }
 
-        private System.Collections.Concurrent.ConcurrentQueue<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentQueue<IBuffer>();
+        private System.Collections.Concurrent.ConcurrentStack<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentStack<IBuffer>();
 
         public IBuffer Pop()
         {
             IBuffer item;
-            if (!mPool.TryDequeue(out item))
+            if (!mPool.TryPop(out item))
             {
                 item = CreateBuffer();
             }
@@ -123,7 +167,7 @@ namespace BeetleX.Buffers
 
         public void Push(IBuffer item)
         {
-            mPool.Enqueue(item);
+            mPool.Push(item);
         }
 
         private static BufferPool mDefault;
@@ -145,7 +189,7 @@ namespace BeetleX.Buffers
             get
             {
                 if (mReceiveDefault == null)
-                    mReceiveDefault = new BufferPool();
+                    mReceiveDefault = new BufferPool(1024 * 16, 100);
                 return mReceiveDefault;
             }
         }
@@ -159,9 +203,20 @@ namespace BeetleX.Buffers
             {
                 if (disposing)
                 {
-                    mPool.Clear();
+                    IBuffer buffer;
+                    while (true)
+                    {
+                        if (mPool.TryPop(out buffer))
+                        {
+                            if (((Buffer)buffer).GCHandle.IsAllocated)
+                            {
+                                ((Buffer)buffer).GCHandle.Free();
+                            }
+                        }
+                        else
+                            break;
+                    }
                 }
-
                 disposedValue = true;
             }
         }

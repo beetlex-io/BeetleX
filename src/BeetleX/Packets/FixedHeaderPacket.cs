@@ -28,19 +28,21 @@ namespace BeetleX.Packets
 
         public EventHandler<PacketDecodeCompletedEventArgs> Completed { get; set; }
 
-
         public abstract IPacket Clone();
 
         private PacketDecodeCompletedEventArgs mCompletedArgs = new PacketDecodeCompletedEventArgs();
 
         private int mSize;
 
+
+        protected int CurrentSize => mSize;
+
         protected abstract object OnReader(ISession session, PipeStream stream);
 
         public void Decode(ISession session, System.IO.Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-            START:
+        START:
             object data;
             if (mSize == 0)
             {
@@ -89,13 +91,13 @@ namespace BeetleX.Packets
             {
                 msgsize.Full((Int16)pstream.CacheLength - length);
             }
-           
+
         }
 
         public byte[] Encode(object data, IServer server)
         {
             byte[] result = null;
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool, server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;
@@ -107,7 +109,7 @@ namespace BeetleX.Packets
 
         public ArraySegment<byte> Encode(object data, IServer server, byte[] buffer)
         {
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool, server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;
@@ -136,18 +138,18 @@ namespace BeetleX.Packets
 
         public EventClientPacketCompleted Completed { get; set; }
 
-
-
         public abstract IClientPacket Clone();
 
         private int mSize;
+
+        protected int CurrentSize => mSize;
 
         protected abstract object OnRead(IClient client, PipeStream stream);
 
         public void Decode(IClient client, Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-            START:
+        START:
             object data;
             if (mSize == 0)
             {

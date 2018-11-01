@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,7 +10,7 @@ namespace BeetleX.Buffers
     {
         long ID { get; }
 
-        Span<byte> Bytes { get; }
+        byte[] Bytes { get; }
 
         int Length { get; }
 
@@ -29,11 +30,15 @@ namespace BeetleX.Buffers
 
         int Postion { get; set; }
 
+        int FreeSpace { get; }
+
         byte Read();
 
         void Write(byte data);
 
         int Write(byte[] buffer, int offset, int count);
+
+        int ReadFree(int count);
 
         int Read(byte[] buffer, int offset, int count);
 
@@ -123,12 +128,17 @@ namespace BeetleX.Buffers
             mPostion = 0;
             mFree = size;
             mBufferData = new byte[size];
+            _gcHandle = GCHandle.Alloc(mBufferData, GCHandleType.Pinned);
             mData = new Memory<byte>(mBufferData);
             mID = System.Threading.Interlocked.Increment(ref mIDQueue);
             mSAEA = new SocketAsyncEventArgsX();
             mSAEA.SetBuffer(mBufferData, 0, size);
             mSAEA.BufferX = this;
         }
+
+        private GCHandle _gcHandle;
+
+        public GCHandle GCHandle => _gcHandle;
 
         private SocketAsyncEventArgsX mSAEA;
 
@@ -155,7 +165,6 @@ namespace BeetleX.Buffers
         public bool Eof
         {
             get { return mEof; }
-
         }
 
         public int Postion
@@ -250,6 +259,17 @@ namespace BeetleX.Buffers
             return result;
         }
 
+
+        public int ReadFree(int count)
+        {
+            int space = mLength - mPostion;
+            int read = space;
+            if (space >= count)
+                read = count;
+            ReadAdvance(read);
+            return read;
+        }
+
         public Span<byte> Read(int bytes)
         {
             Span<byte> result;
@@ -258,7 +278,6 @@ namespace BeetleX.Buffers
             {
                 result = mData.Span.Slice(mPostion, bytes);
                 ReadAdvance(bytes);
-
             }
             else
             {
@@ -274,7 +293,6 @@ namespace BeetleX.Buffers
             mPostion = 0;
             mFree = mSize;
             Next = null;
-
         }
 
         public void SetLength(int length)
@@ -282,23 +300,27 @@ namespace BeetleX.Buffers
             mLength = length;
         }
 
-        public int Write(byte[] buffer, int offset, int count)
+        public unsafe int Write(byte[] buffer, int offset, int count)
         {
-            Span<byte> dest = AllocateSpan(count);
-            if (dest.Length <= 8)
+            int len = mFree;
+            if (mFree > count)
+                len = count;
+            if (len <= 8)
             {
-                for (int i = 0; i < dest.Length; i++)
+                for (int i = 0; i < len; i++)
                 {
-                    dest[i] = buffer[offset + i];
+                    mBufferData[i + Postion] = buffer[offset + i];
                 }
             }
             else
             {
-                Span<byte> source = new Span<byte>(buffer, offset, dest.Length);
-                source.CopyTo(dest);
+                System.Buffer.BlockCopy(buffer, offset, mBufferData, mPostion, len);
             }
-            return dest.Length;
+            WriteAdvance(len);
+            return len;
         }
+
+
 
         public int Read(byte[] buffer, int offset, int count)
         {
@@ -364,7 +386,6 @@ namespace BeetleX.Buffers
             {
                 BitHelper.Write(mBufferData, mPostion, value);
                 WriteAdvance(length);
-
                 return true;
             }
             return false;
@@ -528,9 +549,11 @@ namespace BeetleX.Buffers
 
         public int Size => mSize;
 
-        public Span<byte> Bytes => Memory.Span;
+        public byte[] Bytes => mBufferData;
 
         public IMemoryBlock NextMemory => Next;
+
+        public int FreeSpace => mFree;
 
         public void BindIOEvent(EventHandler<System.Net.Sockets.SocketAsyncEventArgs> e)
         {
@@ -564,52 +587,25 @@ namespace BeetleX.Buffers
 
         public void AsyncFrom(System.Net.Sockets.Socket socket)
         {
-            //mSAEA.IsReceive = true;
-            //mSAEA.UserToken = UserToken;
-            //mSAEA.SetBuffer(0, mSize);
-            //if (!socket.ReceiveAsync(mSAEA))
-            //{
 
-            //    mSAEA.InvokeCompleted();
-            //}
             mSAEA.AsyncFrom(socket, UserToken, mSize);
         }
 
         public void AsyncFrom(ISession session)
         {
-            //mSAEA.IsReceive = true;
-            //mSAEA.UserToken = UserToken;
-            //mSAEA.Session = session;
-            //mSAEA.SetBuffer(0, mSize);
-            //if (!session.Socket.ReceiveAsync(mSAEA))
-            //{
-            //    mSAEA.InvokeCompleted();
-            //}
+
             mSAEA.AsyncFrom(session, UserToken, mSize);
         }
 
         public void AsyncTo(System.Net.Sockets.Socket socket)
         {
-            //mSAEA.IsReceive = false;
-            //mSAEA.UserToken = UserToken;
-            //mSAEA.SetBuffer(0, mLength);
-            //if (!socket.SendAsync(mSAEA))
-            //{
-            //    mSAEA.InvokeCompleted();
-            //}
+
             mSAEA.AsyncTo(socket, UserToken, mLength);
         }
 
         public void AsyncTo(ISession session)
         {
-            //mSAEA.IsReceive = false;
-            //mSAEA.SetBuffer(0, mLength);
-            //mSAEA.Session = session;
-            //mSAEA.UserToken = UserToken;
-            //if (!session.Socket.SendAsync(mSAEA))
-            //{
-            //    mSAEA.InvokeCompleted();
-            //}
+
             mSAEA.AsyncTo(session, UserToken, mLength);
         }
 
@@ -626,6 +622,7 @@ namespace BeetleX.Buffers
                 }
             }
         }
+
 
     }
 

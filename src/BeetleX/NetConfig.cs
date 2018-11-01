@@ -10,28 +10,24 @@ namespace BeetleX
         public NetConfig()
         {
             Port = 9090;
-            ReceiveQueueEnabled = false;
-            ReceiveQueues = 2;
+
             SendQueues = 2;
             SendQueueEnabled = false;
             MaxConnections = 0;
             MaxAcceptQueue = 0;
-            MaxAcceptThreads = 3;
             BufferSize = 1024 * 8;
-            BufferPoolSize = 1024;
+            BufferPoolSize = 128;
             LittleEndian = true;
             Encoding = System.Text.Encoding.UTF8;
             ExecutionContextEnabled = false;
             Combined = 0;
-            Statistical = true;
+            Statistical = false;
             SSL = false;
             LogLevel = EventArgs.LogType.Warring;
+            IOQueueEnabled = false;
         }
 
         public EventArgs.LogType LogLevel { get; set; }
-
-        public int MaxAcceptThreads { get; set; }
-
         public string CertificateFile { get; set; }
 
         public string CertificatePassword { get; set; }
@@ -60,13 +56,14 @@ namespace BeetleX
 
         public string Host { get; set; }
 
-        public bool ReceiveQueueEnabled { get; set; }
+        public bool IOQueueEnabled { get; set; }
+
 
         public bool SendQueueEnabled { get; set; }
 
         public int BufferSize { get; set; }
 
-        public int ReceiveQueues { get; set; }
+
 
         public int SendQueues { get; set; }
 

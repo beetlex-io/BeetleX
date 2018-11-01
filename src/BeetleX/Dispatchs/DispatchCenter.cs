@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Dispatchs
 {
-    class DispatchCenter<T> : IDisposable
+    public class DispatchCenter<T> : IDisposable
     {
-        List<object> mDispatchers = new List<object>();
+        List<SingleThreadDispatcher<T>> mDispatchers = new List<SingleThreadDispatcher<T>>();
 
         long mIndex = 1;
 
@@ -17,21 +17,11 @@ namespace BeetleX.Dispatchs
             {
                 mDispatchers.Add(new SingleThreadDispatcher<T>(process));
             }
-
         }
 
         public SingleThreadDispatcher<T> Next()
         {
-            return (SingleThreadDispatcher<T>)mDispatchers[(int)(System.Threading.Interlocked.Increment(ref mIndex) % mDispatchers.Count)];
-
-        }
-
-        public void Start()
-        {
-            foreach (SingleThreadDispatcher<T> item in mDispatchers)
-            {
-                item.Start();
-            }
+            return mDispatchers[(int)(System.Threading.Interlocked.Increment(ref mIndex) % mDispatchers.Count)];
         }
 
         public void Dispose()

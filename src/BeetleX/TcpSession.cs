@@ -23,8 +23,6 @@ namespace BeetleX
 
         private System.Collections.Concurrent.ConcurrentQueue<object> mSendMessages = new System.Collections.Concurrent.ConcurrentQueue<object>();
 
-        private System.Collections.Concurrent.ConcurrentQueue<object> mReceiveMessages = new System.Collections.Concurrent.ConcurrentQueue<object>();
-
         private EventArgs.SessionReceiveEventArgs mReceiveArgs = new EventArgs.SessionReceiveEventArgs();
 
         private int mSendStatus = 0;
@@ -39,7 +37,7 @@ namespace BeetleX
         {
 
             Server = server;
-            mBaseNetStream = new Buffers.PipeStream(Server.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
+            mBaseNetStream = new Buffers.PipeStream(this.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
             mBaseNetStream.Encoding = Server.Config.Encoding;
             mBaseNetStream.LittleEndian = server.Config.LittleEndian;
             mBaseNetStream.FlashCompleted = OnWriterFlash;
@@ -87,6 +85,8 @@ namespace BeetleX
             internal set;
         }
 
+        public Buffers.BufferPool BufferPool { get; set; }
+
         public Socket Socket
         {
             get;
@@ -107,40 +107,30 @@ namespace BeetleX
             set;
         }
 
+        private int mCount;
+
+        public int Count => mCount;
+
         private void EnqueueSendMessage(object data)
         {
             mSendMessages.Enqueue(data);
+            System.Threading.Interlocked.Increment(ref mCount);
         }
 
         private object DequeueSendMessage()
         {
             object result;
-            mSendMessages.TryDequeue(out result);
+            if (mSendMessages.TryDequeue(out result))
+            {
+                System.Threading.Interlocked.Decrement(ref mCount);
+            }
             return result;
 
         }
 
-        public object DequeueReceiveMessage()
-        {
-            object result;
-            mReceiveMessages.TryDequeue(out result);
-            return result;
-        }
 
-        public void EnqueueReceiveMessage(object data)
-        {
-            mReceiveMessages.Enqueue(data);
-        }
 
-        private EventArgs.PacketDecodeCompletedEventArgs mDecodeCompletedArgs = new EventArgs.PacketDecodeCompletedEventArgs();
 
-        public EventArgs.PacketDecodeCompletedEventArgs GetDecodeCompletedArgs()
-        {
-            mDecodeCompletedArgs.Session = this;
-            mDecodeCompletedArgs.Server = this.Server;
-            mDecodeCompletedArgs.Message = DequeueReceiveMessage();
-            return mDecodeCompletedArgs;
-        }
 
         protected virtual void OnDispose()
         {
@@ -165,8 +155,8 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
-                mReceiveMessages.Clear();
-                mDecodeCompletedArgs = null;
+
+
             }
             catch
             {
@@ -248,7 +238,7 @@ namespace BeetleX
         internal void ProcessSendMessages()
         {
             IBuffer[] items;
-            if (IsDisposed || mSendMessages.Count == 0)
+            if (IsDisposed)
                 return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
@@ -403,13 +393,13 @@ namespace BeetleX
 
         public bool SSL { get; internal set; }
 
-        public int SendMessages => mSendMessages.Count;
+
 
         public void CreateSSL(AsyncCallback asyncCallback)
         {
             try
             {
-                mSslStream = new SslStreamX(Server.BufferPool, Server.Config.Encoding,
+                mSslStream = new SslStreamX(this.BufferPool, Server.Config.Encoding,
                     Server.Config.LittleEndian, mBaseNetStream, false);
                 mSslStream.BeginAuthenticateAsServer(Server.Certificate, false, true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
@@ -417,7 +407,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (Server.EnableLog(EventArgs.LogType.Error))
-                    Server.Error(e_, this, "{1} create session ssl error {0}", e_.Message,this.RemoteEndPoint);
+                    Server.Error(e_, this, "{1} create session ssl error {0}", e_.Message, this.RemoteEndPoint);
                 this.Dispose();
             }
         }

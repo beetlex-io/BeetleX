@@ -7,16 +7,13 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Dispatchs
 {
-    class SingleThreadDispatcher<T> : IDisposable
+    public class SingleThreadDispatcher<T> : IDisposable
     {
         public SingleThreadDispatcher(Action<T> process)
         {
             Process = process;
             mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
-
         }
-
-        private long mCount = 0;
 
         private int mRunStatus = 0;
 
@@ -29,27 +26,24 @@ namespace BeetleX.Dispatchs
         public void Enqueue(T item)
         {
             mQueue.Enqueue(item);
-            System.Threading.Interlocked.Increment(ref mCount);
-            InvokeStart();
+            CheckStart();
         }
 
         private T Dequeue()
         {
             T item;
-            if (mQueue.TryDequeue(out item))
-            {
-                System.Threading.Interlocked.Decrement(ref mCount);
-            }
+            mQueue.TryDequeue(out item);
             return item;
         }
 
-        private void InvokeStart()
+        private void CheckStart()
         {
             if (System.Threading.Interlocked.CompareExchange(ref mRunStatus, 1, 0) == 0)
             {
-                if (mCount > 0)
+                T item;
+                if (mQueue.TryPeek(out item))
                 {
-                    ThreadPool.QueueUserWorkItem(OnStart);
+                    ThreadPool.UnsafeQueueUserWorkItem(OnStart, null);
                 }
                 else
                 {
@@ -60,38 +54,36 @@ namespace BeetleX.Dispatchs
 
         private void OnStart(object state)
         {
-            while (true)
+            try
             {
-                T item = Dequeue();
-                if (item != null)
+                while (true)
                 {
-
-                    try
-                    {
-                        Process(item);
-                    }
-                    catch (Exception e_)
+                    T item = Dequeue();
+                    if (item != null)
                     {
                         try
                         {
-                            if (ProcessError != null)
-                                ProcessError(item, e_);
+                            Process(item);
                         }
-                        catch { }
+                        catch (Exception e_)
+                        {
+                            try
+                            {
+                                if (ProcessError != null)
+                                    ProcessError(item, e_);
+                            }
+                            catch { }
+                        }
                     }
-                }
-                else
-                {
-                    break;
+                    else
+                        break;
                 }
             }
-            System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
-            InvokeStart();
-        }
-
-        public void Start()
-        {
-            InvokeStart();
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
+            }
+            CheckStart();
         }
 
         public void Dispose()
@@ -100,9 +92,7 @@ namespace BeetleX.Dispatchs
         }
     }
 
-
-
-    class MultiThreadDispatcher<T> : IDisposable
+    public class MultiThreadDispatcher<T> : IDisposable
     {
 
         public MultiThreadDispatcher(Action<T> process, int waitLength, int maxThreads)
@@ -148,8 +138,7 @@ namespace BeetleX.Dispatchs
                 int addthread = Interlocked.Increment(ref mThreads);
                 if (addthread == 1)
                 {
-                    Task.Run(new Action(OnRun));
-                     //ThreadPool.QueueUserWorkItem(OnRun);
+                    ThreadPool.UnsafeQueueUserWorkItem(OnRun, null);
                 }
                 else
                 {
@@ -159,8 +148,7 @@ namespace BeetleX.Dispatchs
                     }
                     else
                     {
-                        Task.Run(new Action(OnRun));
-                        //ThreadPool.QueueUserWorkItem(OnRun);
+                        ThreadPool.UnsafeQueueUserWorkItem(OnRun, null);
                     }
                 }
             }
@@ -195,7 +183,6 @@ namespace BeetleX.Dispatchs
                     break;
                 }
             }
-
             Interlocked.Decrement(ref mThreads);
             InvokeProcess();
         }
