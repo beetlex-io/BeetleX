@@ -11,7 +11,7 @@ namespace Http.Server
         private static IServer server;
 
         public static void Main(string[] args)
-        {   
+        {
             NetConfig config = new NetConfig();
             HttpPacket packet = new HttpPacket(new StringSerializer());
             server = SocketFactory.CreateTcpServer(config, new Program(), packet);
@@ -59,7 +59,7 @@ namespace Http.Server
 
         public void SendCompleted(ISession session, SocketAsyncEventArgs e)
         {
-            if (session.SendMessages == 0 && session.Tag != null)
+            if (session.Count == 0 && session.Tag != null)
             {
                 session.Dispose();
             }

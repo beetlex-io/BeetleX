@@ -21,13 +21,21 @@ namespace BeetleX
             Encoding = System.Text.Encoding.UTF8;
             ExecutionContextEnabled = false;
             Combined = 0;
-            Statistical = false;
+            Statistical = true;
             SSL = false;
             LogLevel = EventArgs.LogType.Warring;
             IOQueueEnabled = false;
+            UseIPv6 = true;
+            DetectionTime = 0;
         }
 
+
+        public int DetectionTime { get; set; }
+
+        public bool UseIPv6 { get; set; }
+
         public EventArgs.LogType LogLevel { get; set; }
+
         public string CertificateFile { get; set; }
 
         public string CertificatePassword { get; set; }
@@ -40,7 +48,6 @@ namespace BeetleX
         }
 
         public int BufferPoolSize { get; set; }
-
 
         public bool LittleEndian
         {
@@ -58,12 +65,9 @@ namespace BeetleX
 
         public bool IOQueueEnabled { get; set; }
 
-
         public bool SendQueueEnabled { get; set; }
 
         public int BufferSize { get; set; }
-
-
 
         public int SendQueues { get; set; }
 

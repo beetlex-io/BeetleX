@@ -9,6 +9,7 @@ using BeetleX.Buffers;
 using BeetleX.EventArgs;
 using System.Collections.Concurrent;
 using System.Runtime;
+using System.Net;
 
 namespace BeetleX
 {
@@ -48,6 +49,16 @@ namespace BeetleX
         private long mReceiveQuantity;
 
         private long mSendBytes;
+
+        private System.Net.IPEndPoint mIPEndPoint;
+
+        private X509Certificate2 mCertificate;
+
+        private Buffers.BufferPoolGroup mBufferPoolGroup;
+
+        private System.Threading.Timer mDetectionTimer;
+
+        public IPEndPoint IPEndPoint => mIPEndPoint;
 
         public long ReceivBytes
         {
@@ -136,9 +147,7 @@ namespace BeetleX
                 return mCount;
             }
         }
-        private X509Certificate2 mCertificate;
 
-        private Buffers.BufferPoolGroup mBufferPoolGroup;
 
         public X509Certificate2 Certificate => mCertificate;
 
@@ -170,7 +179,6 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-
                 mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs,
                     Math.Min(Environment.ProcessorCount, 16));
                 mBufferPoolGroup = new BufferPoolGroup(Config.BufferSize, Config.BufferPoolSize, Math.Min(Environment.ProcessorCount, 16), IO_Completed);
@@ -178,13 +186,43 @@ namespace BeetleX
                 {
                     mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Config.SendQueues);
                 }
-                mSessions = new ConcurrentDictionary<long, ISession>(); //new Dictionary<long, ISession>(Config.MaxConnections * 2);
+                mSessions = new ConcurrentDictionary<long, ISession>();
                 mInitialized = true;
                 mWatch.Restart();
                 mSessionDetector.Timeout = OnSessionDetection;
-                mSessionDetector.Server = this;
                 mAcceptDispatcher = new Dispatchs.MultiThreadDispatcher<Socket>(AcceptProcess, 10, Math.Min(Environment.ProcessorCount, 16));
+                if (Config.DetectionTime > 0)
+                {
+                    if (mDetectionTimer != null)
+                        mDetectionTimer.Dispose();
+                    mDetectionTimer = new System.Threading.Timer(OnDetectionHandler, null,
+                        Config.DetectionTime * 1000, Config.DetectionTime * 1000);
+                    if (EnableLog(LogType.Info))
+                    {
+                        Log(LogType.Info, null, "detection sessions timeout with {0}s", Config.DetectionTime);
+                    }
+                }
+            }
+        }
 
+        private void OnDetectionHandler(object state)
+        {
+            mDetectionTimer.Change(-1, -1);
+            try
+            {
+                mSessionDetector.Detection(Config.DetectionTime * 1000);
+                if (EnableLog(LogType.Info))
+                {
+                    Log(LogType.Info, null, "detection sessions completed");
+                }
+            }
+            catch (Exception e_)
+            {
+                Error(e_, null, "detection sessions error");
+            }
+            finally
+            {
+                mDetectionTimer.Change(Config.DetectionTime * 1000, Config.DetectionTime * 1000);
             }
         }
 
@@ -200,10 +238,29 @@ namespace BeetleX
                     }
                     this.mCertificate = new X509Certificate2(Config.CertificateFile, Config.CertificatePassword);
                 }
-                mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                System.Net.IPAddress address = string.IsNullOrEmpty(Config.Host) ? System.Net.IPAddress.Any : System.Net.IPAddress.Parse(Config.Host);
-                System.Net.IPEndPoint point = new System.Net.IPEndPoint(address, Config.Port);
-                mSocket.Bind(point);
+                System.Net.IPAddress address;
+                if (string.IsNullOrEmpty(Config.Host))
+                {
+                    if (Socket.OSSupportsIPv6 && Config.UseIPv6)
+                    {
+                        address = IPAddress.IPv6Any;
+                    }
+                    else
+                    {
+                        address = IPAddress.Any;
+                    }
+                }
+                else
+                {
+                    address = System.Net.IPAddress.Parse(Config.Host);
+                }
+                mIPEndPoint = new System.Net.IPEndPoint(address, Config.Port);
+                mSocket = new Socket(mIPEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                if (mIPEndPoint.Address == IPAddress.IPv6Any)
+                {
+                    mSocket.DualMode = true;
+                }
+                mSocket.Bind(mIPEndPoint);
                 mSocket.Listen(512);
                 ToInitialize();
                 Status = ServerStatus.Start;
@@ -211,10 +268,10 @@ namespace BeetleX
                 if (!GCSettings.IsServerGC)
                 {
                     if (EnableLog(LogType.Warring))
-                        Log(LogType.Warring, null, "not is ServerGC mode! setting ServerGC:\"configProperties\": {\"System.GC.Server\": true}");
+                        Log(LogType.Warring, null, "no ServerGC mode,please enable ServerGC mode!");
                 }
                 if (EnableLog(LogType.Info))
-                    Log(LogType.Info, null, "server start@{0}:{1}", Config.Host, Config.Port);
+                    Log(LogType.Info, null, "server start@{0}:{1}", mIPEndPoint.Address, Config.Port);
                 return true;
 
             }
@@ -361,9 +418,11 @@ namespace BeetleX
                     {
                         break;
                     }
+                    if (EnableLog(LogType.Debug))
+                        Log(LogType.Debug, null, "socket begin accept");
                     var acceptSocket = mSocket.Accept();
                     if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, null, "{0} socket accept", acceptSocket.RemoteEndPoint);
+                        Log(LogType.Debug, null, "{0} socket accept completed ", acceptSocket.RemoteEndPoint);
                     mAcceptDispatcher.Enqueue(acceptSocket);
                 }
             }
@@ -549,7 +608,7 @@ namespace BeetleX
 
         #region server and session event
 
-        private void OnSessionDetection(IList<IDetectorItem> items)
+        private void OnSessionDetection(IList<IDetector> items)
         {
             try
             {
@@ -559,7 +618,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Error))
-                    Error(e_, null, "session detection process error");
+                    Error(e_, null, "detection session  process error");
             }
         }
 
@@ -570,7 +629,6 @@ namespace BeetleX
             {
                 try
                 {
-
                     e.Session.Packet.Decode(e.Session, e.Stream);
                 }
                 catch (Exception e_)
@@ -709,18 +767,12 @@ namespace BeetleX
             {
                 socket.Shutdown(SocketShutdown.Both);
             }
-            catch
-            {
-            }
+            catch{}
             try
             {
                 socket.Dispose();
-
             }
-            catch
-            {
-
-            }
+            catch{ }
         }
         #endregion
 
@@ -733,7 +785,6 @@ namespace BeetleX
             CloseSocket(mSocket);
             if (mReceiveDispatchCenter != null)
                 mReceiveDispatchCenter.Dispose();
-            mSessionDetector.Server = null;
             mSessionDetector.Dispose();
 
         }
@@ -806,6 +857,10 @@ namespace BeetleX
         public void UpdateSession(ISession session)
         {
             mSessionDetector.Update(session);
+            if (EnableLog(LogType.Info))
+            {
+                Log(LogType.Info, session, "{0} update active time", session.RemoteEndPoint);
+            }
         }
 
         class OnlineSegment
@@ -861,7 +916,7 @@ namespace BeetleX
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             if (this.Status == ServerStatus.Start)
             {
-                sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, string.IsNullOrEmpty(this.Config.Host) ? "0.0.0.0" : this.Config.Host, this.Config.Port);
+                sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, mIPEndPoint.Address, mIPEndPoint.Port);
                 sb.AppendFormat("Connections:{0}    \r\n",
                     Count.ToString("###,###,##0").PadLeft(15));
 

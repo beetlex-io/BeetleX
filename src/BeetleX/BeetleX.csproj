@@ -5,15 +5,15 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.0.8.7</AssemblyVersion>
-    <FileVersion>1.0.8.7</FileVersion>
-    <Version>1.0.8.7</Version>
+    <AssemblyVersion>1.1.0.6</AssemblyVersion>
+    <FileVersion>1.1.0.6</FileVersion>
+    <Version>1.1.1</Version>
     <Description>dotnet core high performance socket tcp communication components support SSL
 </Description>
-    <Copyright>Copyright © henryfan 2018 email:henryfan@msn.com</Copyright>
+    <Copyright>Copyright © ikende.com 2018 email:henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/IKende/BeetleX/blob/master/src/BeetleX/License.txt</PackageLicenseUrl>
-    <Company>henryfan</Company>
+    <Company>ikende.com</Company>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

@@ -145,6 +145,12 @@ namespace BeetleX.Clients
 
         private PipeStream mBaseNetworkStream;
 
+        public EventClientConnected Connected
+        {
+            get;
+            set;
+        }
+
         public BufferPool BufferPool { get; set; }
 
         public bool LittleEndian { get; set; }
@@ -221,6 +227,8 @@ namespace BeetleX.Clients
                 task.Wait();
             }
             mConnected = true;
+            if (mConnected)
+                this.Connected?.Invoke(this);
         }
 
         public bool Connect()
@@ -388,7 +396,9 @@ namespace BeetleX.Clients
                     System.Threading.Interlocked.Add(ref mSendBytes, buffer.Length);
                     System.Threading.Interlocked.Increment(ref mSendQuantity);
                     index++;
+                    var freebuf = buffer;
                     buffer = (Buffers.Buffer)buffer.Next;
+                    freebuf.Free();
                 }
             }
             catch (ObjectDisposedException ode)

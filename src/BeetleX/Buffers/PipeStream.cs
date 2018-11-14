@@ -319,35 +319,20 @@ namespace BeetleX.Buffers
                 result.Length++;
                 if (data[i] == eof[result.EofIndex])
                 {
-                    var len = length - i;
-                    if (len > eoflen)
-                        len = eoflen;
                     result.EofIndex++;
                     result.EndPostion = i;
-                    for (int k = 1; k < len; k++)
-                    {
-                        if (data[i + k] == eof[k])
-                        {
-                            result.EofIndex++;
-                            result.EndPostion = i + k;
-                        }
-                        else
-                        {
-                            result.EofIndex = 0;
-                            result.End = null;
-                            result.EndPostion = -1;
-                            break;
-                        }
-                    }
                     if (result.EofIndex == eoflen)
                     {
-                        result.Length += eoflen - 1;
                         return true;
                     }
                 }
+                else
+                {
+                    result.EofIndex = 0;
+                }
             }
+            result.End = null;
             return false;
-
         }
 
         public IndexOfResult IndexOf(Byte[] eof)
@@ -427,6 +412,22 @@ namespace BeetleX.Buffers
             }
         }
 
+        public override void Flush()
+        {
+            if (mFreeState)
+            {
+                if (FlashCompleted != null)
+                {
+                    FlashCompleted(GetWriteCacheBufers());
+                }
+                else
+                {
+                    IBuffer writeCache = GetWriteCacheBufers();
+                    Import(writeCache);
+                }
+            }
+        }
+
         private bool mFreeState = true;
 
         public IDisposable LockFree()
@@ -435,7 +436,7 @@ namespace BeetleX.Buffers
             return new LockFreeImpl(this);
         }
 
-        class LockFreeImpl : IDisposable
+        struct LockFreeImpl : IDisposable
         {
             public LockFreeImpl(PipeStream stream)
             {
@@ -480,18 +481,7 @@ namespace BeetleX.Buffers
             set;
         }
 
-        public override void Flush()
-        {
-            if (FlashCompleted != null)
-            {
-                FlashCompleted(GetWriteCacheBufers());
-            }
-            else
-            {
-                IBuffer writeCache = GetWriteCacheBufers();
-                Import(writeCache);
-            }
-        }
+
         #region read
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -639,6 +629,7 @@ namespace BeetleX.Buffers
                 if (freelen > length)
                 {
                     data = rbuffer.Read(length);
+                    ReadAdvance(length);
                     var l = mDecoder.GetChars(data, charSpan, false);
                     return new string(charSpan.Slice(0, l));
                 }
@@ -783,6 +774,10 @@ namespace BeetleX.Buffers
                         else
                             value = new string(charSpan, 0, len - eof.Length);
                         ReadFree(length);
+                    }
+                    else
+                    {
+                        value = ReadString(result.Length);
                     }
                 }
                 else

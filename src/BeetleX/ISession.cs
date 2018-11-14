@@ -14,7 +14,7 @@ namespace BeetleX
     }
 
 
-    public interface ISession : IDisposable, IDetectorItem
+    public interface ISession : IDisposable, IDetector
     {
 
         Buffers.BufferPool BufferPool { get; set; }

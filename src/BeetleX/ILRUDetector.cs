@@ -7,25 +7,20 @@ namespace BeetleX
 {
     public interface ILRUDetector
     {
-
-        void Update(IDetectorItem item);
+        void Update(IDetector item);
 
         void Detection(int timeout);
 
-        IServer Server { get; }
+        double GetTime();
 
-        Action<IList<IDetectorItem>> Timeout { get; set; }
-
+        Action<IList<IDetector>> Timeout { get; set; }
     }
 
-
-
-    public interface IDetectorItem
+    public interface IDetector
     {
         double ActiveTime
         { get; set; }
-
-        LinkedListNode<IDetectorItem> DetectorNode
+        LinkedListNode<IDetector> DetectorNode
         {
             get;
             set;
@@ -35,31 +30,30 @@ namespace BeetleX
 
     class LRUDetector : ILRUDetector, IDisposable
     {
-
         public LRUDetector()
         {
-
+            mTimeWatch = new System.Diagnostics.Stopwatch();
+            mTimeWatch.Restart();
         }
 
-        private LinkedList<IDetectorItem> mItems = new LinkedList<IDetectorItem>();
+        private Buffers.XSpinLock xSpinLock = new Buffers.XSpinLock();
 
-        public IServer Server
-        {
-            get; internal set;
-        }
+        private System.Diagnostics.Stopwatch mTimeWatch;
 
-        public Action<IList<IDetectorItem>> Timeout
+        private LinkedList<IDetector> mItems = new LinkedList<IDetector>();
+
+        public Action<IList<IDetector>> Timeout
         {
             get; set;
         }
 
         public void Detection(int timeout)
         {
-            double time = Server.GetRunTime();
-            List<IDetectorItem> result = new List<IDetectorItem>();
-            lock (this)
+            double time = GetTime();
+            List<IDetector> result = new List<IDetector>();
+            using (xSpinLock.Enter())
             {
-                LinkedListNode<IDetectorItem> last = mItems.Last;
+                LinkedListNode<IDetector> last = mItems.Last;
                 while (last != null && (time - last.Value.ActiveTime) > timeout)
                 {
                     mItems.Remove(last);
@@ -72,13 +66,13 @@ namespace BeetleX
                 Timeout(result);
         }
 
-        public void Update(IDetectorItem item)
+        public void Update(IDetector item)
         {
-            lock (this)
+            using (xSpinLock.Enter())
             {
                 if (item.DetectorNode == null)
-                    item.DetectorNode = new LinkedListNode<IDetectorItem>(item);
-                item.ActiveTime = Server.GetRunTime();
+                    item.DetectorNode = new LinkedListNode<IDetector>(item);
+                item.ActiveTime = GetTime();
                 if (item.DetectorNode.List == mItems)
                     mItems.Remove(item.DetectorNode);
                 mItems.AddFirst(item);
@@ -88,6 +82,11 @@ namespace BeetleX
         public void Dispose()
         {
             mItems.Clear();
+        }
+
+        public double GetTime()
+        {
+            return mTimeWatch.Elapsed.TotalMilliseconds;
         }
     }
 

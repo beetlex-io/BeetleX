@@ -17,22 +17,30 @@ namespace BeetleX.Dispatchs
 
         private int mRunStatus = 0;
 
+        private int mCount;
+
         private Action<T> Process;
 
         private System.Collections.Concurrent.ConcurrentQueue<T> mQueue;
 
         public Action<T, Exception> ProcessError { get; set; }
 
+        public int Count => mCount;
+
         public void Enqueue(T item)
         {
             mQueue.Enqueue(item);
+            System.Threading.Interlocked.Increment(ref mCount);
             CheckStart();
         }
 
         private T Dequeue()
         {
             T item;
-            mQueue.TryDequeue(out item);
+            if (mQueue.TryDequeue(out item))
+            {
+                System.Threading.Interlocked.Increment(ref mCount);
+            }
             return item;
         }
 
@@ -40,8 +48,7 @@ namespace BeetleX.Dispatchs
         {
             if (System.Threading.Interlocked.CompareExchange(ref mRunStatus, 1, 0) == 0)
             {
-                T item;
-                if (mQueue.TryPeek(out item))
+                if (mCount > 0)
                 {
                     ThreadPool.UnsafeQueueUserWorkItem(OnStart, null);
                 }
@@ -69,8 +76,7 @@ namespace BeetleX.Dispatchs
                         {
                             try
                             {
-                                if (ProcessError != null)
-                                    ProcessError(item, e_);
+                                ProcessError?.Invoke(item, e_);
                             }
                             catch { }
                         }
@@ -131,6 +137,16 @@ namespace BeetleX.Dispatchs
             InvokeProcess();
         }
 
+        public T Dequeue()
+        {
+            T item;
+            if (mQueue.TryDequeue(out item))
+            {
+                System.Threading.Interlocked.Decrement(ref mCount);
+            }
+            return item;
+        }
+
         private void InvokeProcess()
         {
             if (mCount > 0)
@@ -186,16 +202,7 @@ namespace BeetleX.Dispatchs
             Interlocked.Decrement(ref mThreads);
             InvokeProcess();
         }
-
-        public T Dequeue()
-        {
-            T item;
-            if (mQueue.TryDequeue(out item))
-            {
-                System.Threading.Interlocked.Decrement(ref mCount);
-            }
-            return item;
-        }
+    
 
         public void Dispose()
         {

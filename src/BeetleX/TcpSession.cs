@@ -35,7 +35,6 @@ namespace BeetleX
 
         public void Initialization(IServer server, Action<ISession> setting)
         {
-
             Server = server;
             mBaseNetStream = new Buffers.PipeStream(this.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
             mBaseNetStream.Encoding = Server.Config.Encoding;
@@ -58,7 +57,6 @@ namespace BeetleX
                 object value = null;
                 mProperties.TryGetValue(key, out value);
                 return value;
-
             }
 
             set
@@ -125,18 +123,12 @@ namespace BeetleX
                 System.Threading.Interlocked.Decrement(ref mCount);
             }
             return result;
-
         }
-
-
-
-
 
         protected virtual void OnDispose()
         {
             try
             {
-
                 object data = DequeueSendMessage();
                 while (data != null)
                 {
@@ -155,8 +147,6 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
-
-
             }
             catch
             {
@@ -206,7 +196,7 @@ namespace BeetleX
             set;
         }
 
-        public LinkedListNode<IDetectorItem> DetectorNode
+        public LinkedListNode<IDetector> DetectorNode
         {
             get;
             set;
@@ -310,7 +300,6 @@ namespace BeetleX
             }
         }
 
-
         internal void SendCompleted()
         {
             System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
@@ -353,15 +342,11 @@ namespace BeetleX
             return true;
         }
 
-
-
         private void OnWriterFlash(Buffers.IBuffer data)
         {
             if (data != null)
                 Send(data);
         }
-
-
 
         public IPacket Packet
         {
@@ -392,8 +377,6 @@ namespace BeetleX
         }
 
         public bool SSL { get; internal set; }
-
-
 
         public void CreateSSL(AsyncCallback asyncCallback)
         {

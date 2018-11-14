@@ -19,6 +19,13 @@ namespace BeetleX.Dispatchs
             }
         }
 
+
+        public SingleThreadDispatcher<T> Get(object data)
+        {
+            int id = Math.Abs(data.GetHashCode());
+            return mDispatchers[id % mDispatchers.Count];
+        }
+
         public SingleThreadDispatcher<T> Next()
         {
             return mDispatchers[(int)(System.Threading.Interlocked.Increment(ref mIndex) % mDispatchers.Count)];

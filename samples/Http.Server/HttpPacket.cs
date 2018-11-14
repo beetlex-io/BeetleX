@@ -31,7 +31,7 @@ namespace BeetleX.HttpExtend
         public void Decode(ISession session, Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-            START:
+        START:
             if (mRequest == null)
             {
                 mRequest = new HttpRequest(session, this.Serializer);
@@ -73,7 +73,7 @@ namespace BeetleX.HttpExtend
         public byte[] Encode(object data, IServer server)
         {
             byte[] result = null;
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool, server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;
@@ -85,7 +85,7 @@ namespace BeetleX.HttpExtend
 
         public ArraySegment<byte> Encode(object data, IServer server, byte[] buffer)
         {
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool, server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;
