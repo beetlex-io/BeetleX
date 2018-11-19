@@ -197,10 +197,7 @@ namespace BeetleX
                         mDetectionTimer.Dispose();
                     mDetectionTimer = new System.Threading.Timer(OnDetectionHandler, null,
                         Config.DetectionTime * 1000, Config.DetectionTime * 1000);
-                    if (EnableLog(LogType.Info))
-                    {
-                        Log(LogType.Info, null, "detection sessions timeout with {0}s", Config.DetectionTime);
-                    }
+                    Log(LogType.Info, null, "detection sessions timeout with {0}s", Config.DetectionTime);
                 }
             }
         }
@@ -270,8 +267,7 @@ namespace BeetleX
                     if (EnableLog(LogType.Warring))
                         Log(LogType.Warring, null, "no ServerGC mode,please enable ServerGC mode!");
                 }
-                if (EnableLog(LogType.Info))
-                    Log(LogType.Info, null, "server start@{0}:{1}", mIPEndPoint.Address, Config.Port);
+                Log(LogType.Info, null, $"server start@{mIPEndPoint.Address}:{Config.Port} ServerGC:{GCSettings.IsServerGC} IOQueue:{Config.IOQueueEnabled}");
                 return true;
 
             }
@@ -767,12 +763,12 @@ namespace BeetleX
             {
                 socket.Shutdown(SocketShutdown.Both);
             }
-            catch{}
+            catch { }
             try
             {
                 socket.Dispose();
             }
-            catch{ }
+            catch { }
         }
         #endregion
 

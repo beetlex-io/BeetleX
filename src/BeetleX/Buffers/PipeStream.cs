@@ -979,6 +979,7 @@ namespace BeetleX.Buffers
             int cvalueLen = value.Length;
             int index = 0;
             int encodingLen = 0;
+            int count = 0;
             int ensize = value.Length * mMaxCharBytes;
             IBuffer buffer = GetWriteBuffer();
             if (buffer.FreeSpace > ensize)
@@ -986,7 +987,7 @@ namespace BeetleX.Buffers
                 var len = Encoding.GetBytes(value, index, value.Length, buffer.Bytes, buffer.Postion);
                 buffer.WriteAdvance(len);
                 WriteAdvance(len);
-                return cvalueLen;
+                return len;
             }
             while (cvalueLen > 0)
             {
@@ -995,11 +996,12 @@ namespace BeetleX.Buffers
                 else
                     encodingLen = cvalueLen;
                 var len = Encoding.GetBytes(value, index, encodingLen, mCacheBlock, 0);
+                count += len;
                 cvalueLen -= encodingLen;
                 index += encodingLen;
                 Write(mCacheBlock, 0, len);
             }
-            return cvalueLen;
+            return count;
         }
 
         public int Write(string value, params object[] parameters)
