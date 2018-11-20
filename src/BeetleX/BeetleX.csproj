@@ -1,13 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.1.0.6</AssemblyVersion>
-    <FileVersion>1.1.0.6</FileVersion>
-    <Version>1.1.2.2</Version>
+    <AssemblyVersion>1.1.2.6</AssemblyVersion>
+    <FileVersion>1.1.2.6</FileVersion>
+    <Version>1.1.2.6</Version>
     <Description>dotnet core high performance socket tcp communication components support SSL
 </Description>
     <Copyright>Copyright © ikende.com 2018 email:henryfan@msn.com</Copyright>
@@ -29,6 +29,11 @@
   <ItemGroup>
     <Compile Remove="Buffers\BinaryReader.cs" />
     <Compile Remove="Buffers\BinaryWriter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.5.1" />
+    <PackageReference Include="System.Runtime" Version="4.3.0" />
   </ItemGroup>
 
 </Project>

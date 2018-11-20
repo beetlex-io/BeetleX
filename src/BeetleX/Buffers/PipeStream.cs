@@ -111,15 +111,12 @@ namespace BeetleX.Buffers
                 return null;
             if (mReadFirstBuffer.Eof)
             {
-                //using (mLockBuffer.Enter())
-                //{
                 IBuffer buf = mReadFirstBuffer;
                 mReadFirstBuffer = mReadFirstBuffer.Next;
                 buf.Next = null;
                 buf.Free();
                 if (buf == mReadLastBuffer)
                     mReadLastBuffer = null;
-                //}
             }
             return mReadFirstBuffer;
         }
@@ -184,20 +181,15 @@ namespace BeetleX.Buffers
 
         public IBuffer GetReadBuffers()
         {
-            //using (mLockBuffer.Enter())
-            //{
             IBuffer result = mReadFirstBuffer;
             mReadFirstBuffer = null;
             mReadLastBuffer = null;
             System.Threading.Interlocked.Exchange(ref mLength, 0);
             return result;
-            //}
         }
 
         public void Import(IBuffer buffer)
         {
-            //using (mLockBuffer.Enter())
-            //{
             buffer.Postion = 0;
             AddReadLength(buffer.Length);
             if (mReadLastBuffer == null)
@@ -210,7 +202,6 @@ namespace BeetleX.Buffers
                 mReadLastBuffer.Next = buffer;
                 mReadLastBuffer = buffer;
             }
-            //}
             if (buffer != null && buffer.Next != null)
                 Import(buffer.Next);
         }
@@ -372,13 +363,11 @@ namespace BeetleX.Buffers
         internal void WriteAdvance(int bytes)
         {
             mWriteLength += bytes;
-            //System.Threading.Interlocked.Add(ref mWriteLength, bytes);
         }
 
         internal void ReadAdvance(int bytes)
         {
             mLength -= bytes;
-            //System.Threading.Interlocked.Add(ref mLength, -bytes);
             if (mLength == 0)
                 GetReadBuffer();
         }
@@ -396,7 +385,6 @@ namespace BeetleX.Buffers
             Buffer.Free(mWriteFirstBuffer);
             mWriteFirstBuffer = null;
             mWriteLastBuffer = null;
-
         }
 
         protected override void Dispose(bool disposing)
@@ -620,8 +608,13 @@ namespace BeetleX.Buffers
             if (length == 0)
                 return string.Empty;
             IBuffer rbuffer;
+#if (NETSTANDARD2_0)
+            ArraySegment<byte> data;
+            char[] charSpan = mCharCacheBlock;
+#else
             Span<byte> data;
             Span<char> charSpan = mCharCacheBlock.AsSpan();
+#endif
             if (length < mCacheBlockLen)
             {
                 rbuffer = GetAndVerifyReadBuffer();
@@ -630,8 +623,13 @@ namespace BeetleX.Buffers
                 {
                     data = rbuffer.Read(length);
                     ReadAdvance(length);
+#if (NETSTANDARD2_0)
+                    var l = mDecoder.GetChars(data.Array, data.Offset, data.Count, charSpan, 0);
+                    return new string(charSpan, 0, l);
+#else
                     var l = mDecoder.GetChars(data, charSpan, false);
                     return new string(charSpan.Slice(0, l));
+#endif
                 }
             }
             StringBuilder sb = new StringBuilder();
@@ -643,7 +641,6 @@ namespace BeetleX.Buffers
                 else
                     rlen = length;
                 rbuffer = GetAndVerifyReadBuffer();
-
                 int freelen = rbuffer.Length - rbuffer.Postion;
                 if (freelen > rlen)
                 {
@@ -653,6 +650,15 @@ namespace BeetleX.Buffers
                 {
                     data = rbuffer.Read(freelen);
                 }
+#if (NETSTANDARD2_0)
+                ReadAdvance(data.Count);
+                length -= data.Count;
+                var l = mDecoder.GetChars(data.Array, data.Offset, data.Count, charSpan, 0);
+                if (l > 0)
+                {
+                    sb.Append(charSpan, 0, l);
+                }
+#else
                 ReadAdvance(data.Length);
                 length -= data.Length;
                 var l = mDecoder.GetChars(data, charSpan, false);
@@ -660,6 +666,7 @@ namespace BeetleX.Buffers
                 {
                     sb.Append(charSpan.Slice(0, l));
                 }
+#endif
             }
 
             return sb.ToString();
@@ -976,6 +983,8 @@ namespace BeetleX.Buffers
 
         public int Write(string value)
         {
+            if (string.IsNullOrEmpty(value))
+                return 0;
             int cvalueLen = value.Length;
             int index = 0;
             int encodingLen = 0;

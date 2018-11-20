@@ -51,8 +51,11 @@ namespace BeetleX.Buffers
         Memory<byte> GetMemory(int size);
 
         Memory<byte> GetMemory();
-
+#if (NETSTANDARD2_0)
+        ArraySegment<byte> Read(int bytes);
+#else
         Span<byte> Read(int bytes);
+#endif
 
         void WriteAdvance(int bytes);
 
@@ -269,7 +272,24 @@ namespace BeetleX.Buffers
             ReadAdvance(read);
             return read;
         }
-
+#if (NETSTANDARD2_0)
+        public ArraySegment<byte> Read(int bytes)
+        {
+            ArraySegment<byte> result;
+            int space = mLength - mPostion;
+            if (space > bytes)
+            {
+                result = new ArraySegment<byte>(Bytes, mPostion, bytes);
+                ReadAdvance(bytes);
+            }
+            else
+            {
+                result = new ArraySegment<byte>(Bytes, mPostion, space);
+                ReadAdvance(space);
+            }
+            return result;
+        }
+#else
         public Span<byte> Read(int bytes)
         {
             Span<byte> result;
@@ -286,7 +306,7 @@ namespace BeetleX.Buffers
             }
             return result;
         }
-
+#endif
         public void Reset()
         {
             mLength = 0;
@@ -622,7 +642,6 @@ namespace BeetleX.Buffers
                 }
             }
         }
-
 
     }
 

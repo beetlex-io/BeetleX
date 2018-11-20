@@ -94,7 +94,14 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
+#if(NETSTANDARD2_0)
+            while (mQueue.TryDequeue(out T item))
+            {
+
+            }
+#else
             mQueue.Clear();
+#endif
         }
     }
 
@@ -202,11 +209,16 @@ namespace BeetleX.Dispatchs
             Interlocked.Decrement(ref mThreads);
             InvokeProcess();
         }
-    
+
 
         public void Dispose()
         {
+#if (NETSTANDARD2_0)
+            while (mQueue.TryDequeue(out T item))
+            { }
+#else
             mQueue.Clear();
+#endif
         }
 
     }

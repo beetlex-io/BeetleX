@@ -384,8 +384,13 @@ namespace BeetleX
             {
                 mSslStream = new SslStreamX(this.BufferPool, Server.Config.Encoding,
                     Server.Config.LittleEndian, mBaseNetStream, false);
+#if(NETSTANDARD2_0)
+                mSslStream.BeginAuthenticateAsServer(Server.Certificate, new AsyncCallback(asyncCallback),
+                    new Tuple<TcpSession, SslStream>(this, this.mSslStream));
+#else
                 mSslStream.BeginAuthenticateAsServer(Server.Certificate, false, true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
+#endif
             }
             catch (Exception e_)
             {
