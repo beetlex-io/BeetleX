@@ -10,13 +10,12 @@ namespace BeetleX
         public NetConfig()
         {
             Port = 9090;
-
             SendQueues = 2;
             SendQueueEnabled = false;
-            MaxConnections = 0;
+            MaxConnections = 10000;
             MaxAcceptQueue = 0;
             BufferSize = 1024 * 8;
-            BufferPoolSize = 128;
+            BufferPoolSize = 10;
             LittleEndian = true;
             Encoding = System.Text.Encoding.UTF8;
             ExecutionContextEnabled = false;
@@ -26,11 +25,12 @@ namespace BeetleX
             LogLevel = EventArgs.LogType.Warring;
             IOQueueEnabled = false;
             UseIPv6 = true;
-            DetectionTime = 0;
+            SessionTimeOut = 0;
+            BufferPoolMaxMemory = 100;
         }
 
 
-        public int DetectionTime { get; set; }
+        public int SessionTimeOut { get; set; }
 
         public bool UseIPv6 { get; set; }
 
@@ -46,6 +46,8 @@ namespace BeetleX
         {
             get; set;
         }
+
+        public int BufferPoolMaxMemory { get; set; }
 
         public int BufferPoolSize { get; set; }
 

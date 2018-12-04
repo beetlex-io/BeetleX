@@ -1,18 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.1.2.6</AssemblyVersion>
-    <FileVersion>1.1.2.6</FileVersion>
-    <Version>1.1.2.6</Version>
-    <Description>dotnet core high performance socket tcp communication components support SSL
-</Description>
+    <AssemblyVersion>1.1.6.0</AssemblyVersion>
+    <FileVersion>1.1.6.0</FileVersion>
+    <Version>1.1.6.0</Version>
+    <Description>dotnet core high performance socket tcp communication components support SSL</Description>
     <Copyright>Copyright © ikende.com 2018 email:henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/IKende/BeetleX/blob/master/src/BeetleX/License.txt</PackageLicenseUrl>
+    <PackageLicenseUrl>https://github.com/IKende/FastHttpApi/blob/master/LICENSE</PackageLicenseUrl>
     <Company>ikende.com</Company>
   </PropertyGroup>
 

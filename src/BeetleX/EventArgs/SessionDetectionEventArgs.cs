@@ -7,7 +7,7 @@ namespace BeetleX.EventArgs
 {
     public class SessionDetectionEventArgs : ServerEventArgs
     {
-        public IList<IDetector> Sesions
+        public IList<ISession> Sesions
         {
             get;
             internal set;

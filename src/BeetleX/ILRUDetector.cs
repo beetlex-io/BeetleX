@@ -5,90 +5,93 @@ using System.Threading.Tasks;
 
 namespace BeetleX
 {
-    public interface ILRUDetector
-    {
-        void Update(IDetector item);
+    //public interface ILRUDetector
+    //{
+    //    void Update(IDetector item);
 
-        void Detection(int timeout);
+    //    void Detection(int timeout);
 
-        double GetTime();
+    //    double GetTime();
 
-        Action<IList<IDetector>> Timeout { get; set; }
-    }
+    //    Action<IList<IDetector>> Timeout { get; set; }
+    //}
 
-    public interface IDetector
-    {
-        double ActiveTime
-        { get; set; }
-        LinkedListNode<IDetector> DetectorNode
-        {
-            get;
-            set;
-        }
-    }
+    //public interface IDetector
+    //{
+       
+    //    LinkedListNode<IDetector> DetectorNode
+    //    {
+    //        get;
+    //        set;
+    //    }
+    //}
 
 
-    class LRUDetector : ILRUDetector, IDisposable
-    {
-        public LRUDetector()
-        {
-            mTimeWatch = new System.Diagnostics.Stopwatch();
-            mTimeWatch.Restart();
-        }
+    //class LRUDetector : ILRUDetector, IDisposable
+    //{
+    //    public LRUDetector()
+    //    {
+    //        mTimeWatch = new System.Diagnostics.Stopwatch();
+    //        mTimeWatch.Restart();
+    //    }
 
-        private Buffers.XSpinLock xSpinLock = new Buffers.XSpinLock();
+    //    private Buffers.XSpinLock xSpinLock = new Buffers.XSpinLock();
 
-        private System.Diagnostics.Stopwatch mTimeWatch;
+    //    private System.Diagnostics.Stopwatch mTimeWatch;
 
-        private LinkedList<IDetector> mItems = new LinkedList<IDetector>();
+    //    private LinkedList<IDetector> mItems = new LinkedList<IDetector>();
 
-        public Action<IList<IDetector>> Timeout
-        {
-            get; set;
-        }
+    //    public Action<IList<IDetector>> Timeout
+    //    {
+    //        get; set;
+    //    }
 
-        public void Detection(int timeout)
-        {
-            double time = GetTime();
-            List<IDetector> result = new List<IDetector>();
-            using (xSpinLock.Enter())
-            {
-                LinkedListNode<IDetector> last = mItems.Last;
-                while (last != null && (time - last.Value.ActiveTime) > timeout)
-                {
-                    mItems.Remove(last);
-                    result.Add(last.Value);
-                    last.Value.DetectorNode = null;
-                    last = mItems.Last;
-                }
-            }
-            if (Timeout != null && result.Count > 0)
-                Timeout(result);
-        }
+    //    public void Detection(int timeout)
+    //    {
+    //        double time = GetTime();
+    //        List<IDetector> result = new List<IDetector>();
+    //        using (xSpinLock.Enter())
+    //        {
+    //            LinkedListNode<IDetector> last = mItems.Last;
+    //            while (last != null && (time - last.Value.ActiveTime) > timeout)
+    //            {
+    //                mItems.Remove(last);
+    //                result.Add(last.Value);
+    //                last.Value.DetectorNode = null;
+    //                last = mItems.Last;
+    //            }
+    //        }
+    //        if (Timeout != null && result.Count > 0)
+    //            Timeout(result);
+    //    }
 
-        public void Update(IDetector item)
-        {
-            using (xSpinLock.Enter())
-            {
-                if (item.DetectorNode == null)
-                    item.DetectorNode = new LinkedListNode<IDetector>(item);
-                item.ActiveTime = GetTime();
-                if (item.DetectorNode.List == mItems)
-                    mItems.Remove(item.DetectorNode);
-                mItems.AddFirst(item);
-            }
-        }
+    //    public void Update(IDetector item)
+    //    {
+    //        using (xSpinLock.Enter())
+    //        {
+    //            item.ActiveTime = GetTime();
+    //            if (item.DetectorNode == null)
+    //            {
+    //                item.DetectorNode = mItems.AddFirst(item);  //new LinkedListNode<IDetector>(item);
+    //            }
+    //            else
+    //            {
+    //                mItems.Remove(item.DetectorNode);
+    //                mItems.AddFirst(item.DetectorNode);
+    //            }
+    //        }
+    //    }
 
-        public void Dispose()
-        {
-            mItems.Clear();
-        }
+    //    public void Dispose()
+    //    {
+    //        mItems.Clear();
+    //    }
 
-        public double GetTime()
-        {
-            return mTimeWatch.Elapsed.TotalMilliseconds;
-        }
-    }
+    //    public double GetTime()
+    //    {
+    //        return mTimeWatch.Elapsed.TotalMilliseconds;
+    //    }
+    //}
 
 
 }

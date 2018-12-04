@@ -36,17 +36,23 @@ namespace BeetleX
         public void Initialization(IServer server, Action<ISession> setting)
         {
             Server = server;
-            mBaseNetStream = new Buffers.PipeStream(this.BufferPool, server.Config.LittleEndian, server.Config.Encoding);
+            mBaseNetStream = new Buffers.PipeStream(this.SendBufferPool, server.Config.LittleEndian, server.Config.Encoding);
             mBaseNetStream.Encoding = Server.Config.Encoding;
             mBaseNetStream.LittleEndian = server.Config.LittleEndian;
             mBaseNetStream.FlashCompleted = OnWriterFlash;
             mBaseNetStream.Socket = this.Socket;
             Authentication = AuthenticationType.None;
+            SendEventArgs = new SocketAsyncEventArgsX();
+            ReceiveEventArgs = new SocketAsyncEventArgsX();
             if (setting != null)
             {
                 setting(this);
             }
         }
+
+        public Buffers.SocketAsyncEventArgsX SendEventArgs { get; set; }
+
+        public Buffers.SocketAsyncEventArgsX ReceiveEventArgs { get; set; }
 
         private Dictionary<string, object> mProperties = new Dictionary<string, object>();
 
@@ -83,7 +89,9 @@ namespace BeetleX
             internal set;
         }
 
-        public Buffers.BufferPool BufferPool { get; set; }
+        public Buffers.BufferPool ReceiveBufferPool { get; set; }
+
+        public Buffers.BufferPool SendBufferPool { get; set; }
 
         public Socket Socket
         {
@@ -129,6 +137,7 @@ namespace BeetleX
         {
             try
             {
+
                 object data = DequeueSendMessage();
                 while (data != null)
                 {
@@ -136,6 +145,10 @@ namespace BeetleX
                         ((IBuffer)data).Free();
                     data = DequeueSendMessage();
                 }
+                if (SendEventArgs != null)
+                    SendEventArgs.Dispose();
+                if (ReceiveEventArgs != null)
+                    ReceiveEventArgs.Dispose();
                 mReceiveArgs.Server = null;
                 mReceiveArgs.Session = null;
                 mBaseNetStream.Dispose();
@@ -190,13 +203,7 @@ namespace BeetleX
             set;
         }
 
-        public double ActiveTime
-        {
-            get;
-            set;
-        }
-
-        public LinkedListNode<IDetector> DetectorNode
+        public double TimeOut
         {
             get;
             set;
@@ -290,7 +297,7 @@ namespace BeetleX
         {
             try
             {
-                ((Buffers.Buffer)buffer).AsyncTo(this);
+                ((Buffers.Buffer)buffer).AsyncTo(this.SendEventArgs, this);
             }
             catch (Exception e_)
             {
@@ -382,7 +389,7 @@ namespace BeetleX
         {
             try
             {
-                mSslStream = new SslStreamX(this.BufferPool, Server.Config.Encoding,
+                mSslStream = new SslStreamX(this.SendBufferPool, Server.Config.Encoding,
                     Server.Config.LittleEndian, mBaseNetStream, false);
 #if(NETSTANDARD2_0)
                 mSslStream.BeginAuthenticateAsServer(Server.Certificate, new AsyncCallback(asyncCallback),

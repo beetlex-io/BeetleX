@@ -25,7 +25,6 @@ namespace BeetleX.Clients
         public string Message { get; set; }
     }
 
-
     public delegate void EventClientReceive(IClient c, ClientReceiveArgs reader);
 
     public delegate void EventClientError(IClient c, ClientErrorArgs e);
@@ -86,7 +85,6 @@ namespace BeetleX.Clients
         string SslServiceName { get; set; }
 
     }
-
 
     public class TcpClient : IClient
     {
@@ -200,6 +198,19 @@ namespace BeetleX.Clients
             return false;
         }
 
+        public TcpClient Send(Action<PipeStream> handler)
+        {
+            Connect();
+            PipeStream stream = this.Stream.ToPipeStream();
+            if (handler != null)
+            {
+                handler(stream);
+                if (stream.CacheLength > 0)
+                    this.Stream.Flush();
+            }
+            return this;
+        }
+
         private void OnConnect()
         {
             mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -207,9 +218,15 @@ namespace BeetleX.Clients
             mSocket.ReceiveTimeout = TimeOut;
             mSocket.SendTimeout = TimeOut;
             if (mBaseNetworkStream != null)
+            {
                 mBaseNetworkStream.Dispose();
+                mBaseNetworkStream = null;
+            }
             if (mSslStream != null)
+            {
                 mSslStream.Dispose();
+                mSslStream = null;
+            }
             mBaseNetworkStream = new Buffers.PipeStream(BufferPool, this.LittleEndian, this.Encoding);
             mBaseNetworkStream.Socket = mSocket;
             mBaseNetworkStream.Encoding = this.Encoding;
@@ -254,9 +271,15 @@ namespace BeetleX.Clients
                     mSocket = null;
                 }
                 if (mSslStream != null)
+                {
                     mSslStream.Dispose();
+                    mSslStream = null;
+                }
                 if (mBaseNetworkStream != null)
+                {
                     mBaseNetworkStream.Dispose();
+                    mBaseNetworkStream = null;
+                }
 
             }
             catch
@@ -264,7 +287,7 @@ namespace BeetleX.Clients
             }
         }
 
-        public void SendMessage(object msg)
+        public TcpClient SendMessage(object msg)
         {
             IBuffer[] items;
             Connect();
@@ -298,6 +321,7 @@ namespace BeetleX.Clients
                 if (bufferLink.First != null)
                     OnWriterFlash(bufferLink.First);
             }
+            return this;
         }
 
         private void WriterData(object data, System.IO.Stream stream)
@@ -320,12 +344,13 @@ namespace BeetleX.Clients
             }
         }
 
-        public System.IO.Stream Read()
+        public PipeStream Receive()
         {
-            return GetReader();
+            GetReader();
+            return this.Stream.ToPipeStream();
         }
 
-        public T ReadMessage<T>()
+        public T ReceiveMessage<T>()
         {
             Connect();
             mReceiveMessage = null;
@@ -365,16 +390,6 @@ namespace BeetleX.Clients
                 DisConnect();
                 throw e_;
             }
-        }
-
-        public Task<System.IO.Stream> ReadAsync()
-        {
-            return Task.Run<System.IO.Stream>(new Func<System.IO.Stream>(GetReader));
-        }
-
-        public Task<T> ReadMessageAsync<T>()
-        {
-            return Task.Run<T>(new Func<T>(ReadMessage<T>));
         }
 
         private void OnPacketCompleted(IClient client, object message)
@@ -444,7 +459,6 @@ namespace BeetleX.Clients
 
     }
 
-
     public interface IClientSocketProcessHandler
     {
         void ReceiveCompleted(IClient client, SocketAsyncEventArgs e);
@@ -452,12 +466,8 @@ namespace BeetleX.Clients
         void SendCompleted(IClient client, SocketAsyncEventArgs e);
     }
 
-
-
-
     public class AsyncTcpClient : IClient
     {
-
         public IClientSocketProcessHandler SocketProcessHandler
         {
             get;
@@ -470,7 +480,7 @@ namespace BeetleX.Clients
             set;
         }
 
-        public EventClientReceive Receive
+        public EventClientReceive DataReceive
         {
             get;
             set;
@@ -482,8 +492,15 @@ namespace BeetleX.Clients
             LittleEndian = true;
             ExecutionContextEnabled = false;
             BufferPool = BufferPool.ReceiveDefault;
+            TimeOut = 10000;
+            mTimeWatch.Start();
         }
 
+        private System.Diagnostics.Stopwatch mTimeWatch = new System.Diagnostics.Stopwatch();
+
+        private Buffers.SocketAsyncEventArgsX mReceiveEventArgs;
+
+        private Buffers.SocketAsyncEventArgsX mSendEventArgs;
 
         public BufferPool BufferPool { get; set; }
 
@@ -502,7 +519,7 @@ namespace BeetleX.Clients
         public void Init(string host, int port, IClientPacket packet)
         {
             var talk = Dns.GetHostAddressesAsync(host);
-            talk.Wait();
+            talk.Wait(10);
             IPAddress[] ips = talk.Result;
             if (ips.Length == 0)
                 throw new BXException("get host's address error");
@@ -552,6 +569,10 @@ namespace BeetleX.Clients
 
         private SslStreamX mSslStream = null;
 
+        private AwaitObject awaitPipeStream = new AwaitObject();
+
+        private AwaitObject mReadMessageAwait = new AwaitObject();
+
         private int mPort;
 
         public void ProcessError(Exception e_, string message = null)
@@ -562,6 +583,10 @@ namespace BeetleX.Clients
             e.Message = message;
             try
             {
+                if (awaitPipeStream.Pending)
+                    awaitPipeStream.Error(e_);
+                if (mReadMessageAwait.Pending)
+                    mReadMessageAwait.Error(e_);
                 ClientError?.Invoke(this, e);
             }
             catch
@@ -581,9 +606,21 @@ namespace BeetleX.Clients
                         TcpClient.CloseSocket(mSocket);
                         mSocket = null;
                     }
+                    mReceiveEventArgs.Dispose();
+                    mReceiveEventArgs = null;
+                    mSendEventArgs.Dispose();
+                    mSendEventArgs = null;
                     mProperties.Clear();
                     if (mBaseNetworkStream != null)
+                    {
                         mBaseNetworkStream.Dispose();
+                        mBaseNetworkStream = null;
+                    }
+                    if (mSslStream != null)
+                    {
+                        mSslStream.Dispose();
+                        mSslStream = null;
+                    }
                     object item = DequeueSendMessage();
                     while (item != null)
                     {
@@ -604,6 +641,14 @@ namespace BeetleX.Clients
                 catch
                 {
                 }
+            }
+            if (awaitPipeStream.Pending)
+            {
+                awaitPipeStream.Error(new SocketException((int)SocketError.ConnectionAborted));
+            }
+            if (mReadMessageAwait.Pending)
+            {
+                mReadMessageAwait.Error(new SocketException((int)SocketError.ConnectionAborted));
             }
         }
 
@@ -632,7 +677,7 @@ namespace BeetleX.Clients
                 }
                 catch (Exception e_)
                 {
-                    ProcessError(e_, "client  buffer decoding error!");
+                    ProcessError(e_, "client packet decoding error!");
                 }
             }
             else
@@ -640,12 +685,17 @@ namespace BeetleX.Clients
                 try
                 {
                     mReceiveArgs.Stream = this.Stream;
-                    Receive?.Invoke(this, mReceiveArgs);
+                    if (awaitPipeStream.Pending)
+                        awaitPipeStream.Success(this.Stream.ToPipeStream());
+                    else
+                        DataReceive?.Invoke(this, mReceiveArgs);
+
                 }
                 catch (Exception e_)
                 {
                     ProcessError(e_, "client  buffer process error!");
                 }
+
             }
         }
 
@@ -654,6 +704,7 @@ namespace BeetleX.Clients
             SocketAsyncEventArgsX ex = (SocketAsyncEventArgsX)e;
             ISession session = ex.Session;
             AsyncTcpClient tcpclient = (AsyncTcpClient)e.UserToken;
+            tcpclient.InitReceiveState();
             try
             {
                 if (e.SocketError == SocketError.Success && e.BytesTransferred > 0)
@@ -677,7 +728,6 @@ namespace BeetleX.Clients
             }
             catch (Exception e_)
             {
-
                 tcpclient.ProcessError(e_, "client network receive error!");
             }
         }
@@ -697,7 +747,7 @@ namespace BeetleX.Clients
                     {
                         buffer.Postion = buffer.Postion + e.BytesTransferred;
                         buffer.SetLength(buffer.Length - e.BytesTransferred);
-                        buffer.AsyncTo(tcpclient.Socket);
+                        buffer.AsyncTo(tcpclient.mSendEventArgs, tcpclient.Socket);
                     }
                     else
                     {
@@ -730,21 +780,26 @@ namespace BeetleX.Clients
 
         }
 
-        private void BeginReceive()
+        private int mReceiveState = 0;
+
+        internal void InitReceiveState()
         {
-            if (IsConnected)
+            System.Threading.Interlocked.Exchange(ref mReceiveState, 0);
+        }
+
+        public void BeginReceive()
+        {
+            if (IsConnected && System.Threading.Interlocked.Exchange(ref mReceiveState, 1) == 0)
             {
                 Buffers.Buffer buffer = (Buffers.Buffer)BufferPool.Pop();
-                if (!buffer.BindIOCompleted)
-                    buffer.BindIOEvent(IO_Completed);
                 buffer.UserToken = this;
                 try
                 {
-                    buffer.AsyncFrom(mSocket);
+                    buffer.AsyncFrom(mReceiveEventArgs, mSocket);
                 }
                 catch (Exception e_)
                 {
-
+                    InitReceiveState();
                     buffer.Free();
                     DisConnect();
                     ProcessError(e_, "client begin network receive error!");
@@ -760,6 +815,11 @@ namespace BeetleX.Clients
             {
                 return mLastError;
             }
+        }
+
+        public long GetTime()
+        {
+            return mTimeWatch.ElapsedMilliseconds;
         }
 
         public int TimeOut
@@ -785,32 +845,57 @@ namespace BeetleX.Clients
             }
         }
 
-        public static bool ValidateServerCertificate(
-            object sender,
-            X509Certificate certificate,
-            X509Chain chain,
-            SslPolicyErrors sslPolicyErrors)
+        public static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
             return false;
         }
 
+        public AwaitObject ReceiveMessage()
+        {
+            mReadMessageAwait.Reset();
+            Connect();
+            if (Packet == null)
+                ProcessError(new BXException("packet is empty be cannot receive messages!"), "packet is empty be cannot receive messages");
+            return mReadMessageAwait;
+        }
+
+        public AwaitStruct<T> ReceiveMessage<T>()
+        {
+            return new AwaitStruct<T>(ReceiveMessage());
+        }
+
+        public AwaitStruct<PipeStream> Receive()
+        {
+            awaitPipeStream.Reset();
+            Connect();
+            BeginReceive();
+            return new AwaitStruct<PipeStream>(awaitPipeStream);
+        }
+
         public bool Connect()
         {
             if (IsConnected)
                 return true;
-            lock (this)
+            try
             {
-                mLastError = null;
-                if (!IsConnected)
+                lock (this)
                 {
-                    try
+                    if (!IsConnected)
                     {
+                        mLastError = null;
+                        InitReceiveState();
                         if (mBaseNetworkStream != null)
+                        {
                             mBaseNetworkStream.Dispose();
+                            mBaseNetworkStream = null;
+                        }
                         if (mSslStream != null)
+                        {
                             mSslStream.Dispose();
+                            mSslStream = null;
+                        }
                         mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                         mSocket.Connect(mIPAddress, mPort);
                         mSocket.ReceiveTimeout = TimeOut;
@@ -824,7 +909,14 @@ namespace BeetleX.Clients
                         mBaseNetworkStream.FlashCompleted = OnWriterFlash;
                         mSendStatus = 0;
                         mReceiveArgs = new ClientReceiveArgs();
-
+                        if (mReceiveEventArgs != null)
+                            mReceiveEventArgs.Dispose();
+                        mReceiveEventArgs = new SocketAsyncEventArgsX();
+                        mReceiveEventArgs.Completed += IO_Completed;
+                        if (mSendEventArgs != null)
+                            mSendEventArgs.Dispose();
+                        mSendEventArgs = new SocketAsyncEventArgsX();
+                        mSendEventArgs.Completed += IO_Completed;
                         if (this.Packet != null)
                         {
                             this.Packet = this.Packet.Clone();
@@ -837,19 +929,17 @@ namespace BeetleX.Clients
                             task.Wait();
                         }
                         BeginReceive();
+                        if (IsConnected)
+                            OnConnected();
                     }
-                    catch (Exception e_)
-                    {
-                        mConnected = false;
-
-                        ProcessError(e_, "client connect to server error!");
-                    }
-                    if (IsConnected)
-                        OnConnected();
                 }
-                return mConnected;
             }
-
+            catch (Exception e_)
+            {
+                mConnected = false;
+                ProcessError(e_, "client connect to server error!");
+            }
+            return mConnected;
         }
 
         private void OnConnected()
@@ -888,7 +978,7 @@ namespace BeetleX.Clients
 
         }
 
-        public void SendBatch(System.Collections.IEnumerable items)
+        public AsyncTcpClient BatchSend(System.Collections.IEnumerable items)
         {
             Connect();
             if (!IsConnected)
@@ -898,15 +988,32 @@ namespace BeetleX.Clients
                 EnqueueSendMessage(item);
             }
             ProcessSendMessages();
+            return this;
         }
 
-        public void Send(object data)
+        public AsyncTcpClient Send(Action<PipeStream> writeHandler)
         {
             Connect();
             if (!IsConnected)
                 throw mLastError;
-            EnqueueSendMessage(data);
-            ProcessSendMessages();
+            if (writeHandler != null)
+            {
+                PipeStream stream = this.Stream.ToPipeStream();
+                writeHandler(stream);
+                if (stream.CacheLength > 0)
+                    this.Stream.Flush();
+            }
+            return this;
+        }
+
+        public AsyncTcpClient Send(object data)
+        {
+            if (Connect())
+            {
+                EnqueueSendMessage(data);
+                ProcessSendMessages();
+            }
+            return this;
         }
 
         private void WriterData(object data, System.IO.Stream stream)
@@ -986,8 +1093,6 @@ namespace BeetleX.Clients
 
         }
 
-
-
         internal void CommitBuffer(IBuffer buffer)
         {
             try
@@ -995,8 +1100,7 @@ namespace BeetleX.Clients
 
                 Buffers.Buffer bf = (Buffers.Buffer)buffer;
                 bf.UserToken = this;
-                bf.BindIOEvent(IO_Completed);
-                ((Buffers.Buffer)buffer).AsyncTo(this.Socket);
+                ((Buffers.Buffer)buffer).AsyncTo(this.mSendEventArgs, this.Socket);
             }
             catch (Exception e_)
             {
@@ -1017,6 +1121,7 @@ namespace BeetleX.Clients
             if (data != null)
                 Send(data);
         }
+
         public IClientPacket Packet
         {
             get
@@ -1033,17 +1138,18 @@ namespace BeetleX.Clients
         {
             try
             {
-                if (ReceivePacket != null)
-                    ReceivePacket(this, message);
+                if (mReadMessageAwait.Pending)
+                    mReadMessageAwait.Success(message);
+                else
+                    PacketReceive?.Invoke(this, message);
             }
             catch (Exception e_)
             {
                 ProcessError(e_, "client message process error!");
             }
-
-
         }
-        public EventClientPacketCompleted ReceivePacket
+
+        public EventClientPacketCompleted PacketReceive
         {
             get; set;
         }

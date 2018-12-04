@@ -134,16 +134,11 @@ namespace BeetleX.Buffers
             _gcHandle = GCHandle.Alloc(mBufferData, GCHandleType.Pinned);
             mData = new Memory<byte>(mBufferData);
             mID = System.Threading.Interlocked.Increment(ref mIDQueue);
-            mSAEA = new SocketAsyncEventArgsX();
-            mSAEA.SetBuffer(mBufferData, 0, size);
-            mSAEA.BufferX = this;
         }
 
         private GCHandle _gcHandle;
 
         public GCHandle GCHandle => _gcHandle;
-
-        private SocketAsyncEventArgsX mSAEA;
 
         private byte[] mBufferData;
 
@@ -307,12 +302,28 @@ namespace BeetleX.Buffers
             return result;
         }
 #endif
+
+        private int mUsing = 0;
+
         public void Reset()
         {
             mLength = 0;
             mPostion = 0;
             mFree = mSize;
             Next = null;
+            System.Threading.Interlocked.Exchange(ref mUsing, 1);
+
+        }
+
+
+        public void Free()
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref mUsing, 0, 1) == 1)
+            {
+                if (Pool != null)
+                    Pool.Push(this);
+            }
+
         }
 
         public void SetLength(int length)
@@ -373,12 +384,7 @@ namespace BeetleX.Buffers
             WriteAdvance(1);
         }
 
-        public void Free()
-        {
-            if (Pool != null)
-                Pool.Push(this);
 
-        }
 
         public Memory<byte> AllocateMemory(int bytes)
         {
@@ -555,16 +561,6 @@ namespace BeetleX.Buffers
             set;
         }
 
-        private bool mBindIOCompleted = false;
-
-        public bool BindIOCompleted
-        {
-            get
-            {
-                return mBindIOCompleted;
-            }
-        }
-
         public byte[] Data => mBufferData;
 
         public int Size => mSize;
@@ -574,16 +570,6 @@ namespace BeetleX.Buffers
         public IMemoryBlock NextMemory => Next;
 
         public int FreeSpace => mFree;
-
-        public void BindIOEvent(EventHandler<System.Net.Sockets.SocketAsyncEventArgs> e)
-        {
-            if (!mBindIOCompleted)
-            {
-                mSAEA.Completed += e;
-                mBindIOCompleted = true;
-            }
-        }
-
 
         public int From(System.Net.Sockets.Socket socket)
         {
@@ -605,28 +591,28 @@ namespace BeetleX.Buffers
             return count;
         }
 
-        public void AsyncFrom(System.Net.Sockets.Socket socket)
+        public void AsyncFrom(SocketAsyncEventArgsX argsX, System.Net.Sockets.Socket socket)
         {
-
-            mSAEA.AsyncFrom(socket, UserToken, mSize);
+            argsX.BufferX = this;
+            argsX.AsyncFrom(socket, UserToken, mSize);
         }
 
-        public void AsyncFrom(ISession session)
+        public void AsyncFrom(SocketAsyncEventArgsX argsX, ISession session)
         {
-
-            mSAEA.AsyncFrom(session, UserToken, mSize);
+            argsX.BufferX = this;
+            argsX.AsyncFrom(session, UserToken, mSize);
         }
 
-        public void AsyncTo(System.Net.Sockets.Socket socket)
+        public void AsyncTo(SocketAsyncEventArgsX argsX, System.Net.Sockets.Socket socket)
         {
-
-            mSAEA.AsyncTo(socket, UserToken, mLength);
+            argsX.BufferX = this;
+            argsX.AsyncTo(socket, UserToken, mLength);
         }
 
-        public void AsyncTo(ISession session)
+        public void AsyncTo(SocketAsyncEventArgsX argsX, ISession session)
         {
-
-            mSAEA.AsyncTo(session, UserToken, mLength);
+            argsX.BufferX = this;
+            argsX.AsyncTo(session, UserToken, mLength);
         }
 
         internal static void Free(IBuffer buffer)

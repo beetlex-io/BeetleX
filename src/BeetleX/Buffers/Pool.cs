@@ -65,10 +65,6 @@ namespace BeetleX.Buffers
         }
     }
 
-
-
-
-
     public interface IBufferPool : IDisposable
     {
         IBuffer Pop();
@@ -82,11 +78,11 @@ namespace BeetleX.Buffers
 
         private long mIndex = 1;
 
-        public BufferPoolGroup(int buffrsize, int count, int groups, EventHandler<System.Net.Sockets.SocketAsyncEventArgs> completed)
+        public BufferPoolGroup(int buffrsize, int count, int maxCount, int groups)
         {
             for (int i = 0; i < groups; i++)
             {
-                bufferPools.Add(new BufferPool(buffrsize, count, completed));
+                bufferPools.Add(new BufferPool(buffrsize, count, maxCount));
             }
         }
 
@@ -100,33 +96,34 @@ namespace BeetleX.Buffers
     public class BufferPool : IBufferPool
     {
 
+        public static int BUFFER_SIZE = 1024 * 8;
+
+        public static int POOL_SIZE = 1024;
+
+        public static int POOL_MAX_SIZE = 1024 * 20;
+
         public BufferPool()
         {
-            Init(1024 * 8, 1024);
+            Init(BUFFER_SIZE, POOL_SIZE, POOL_MAX_SIZE);
 
         }
 
-        private EventHandler<System.Net.Sockets.SocketAsyncEventArgs> mCompleted;
-
-        public BufferPool(int size, int count) : this(size, count, null
-            )
-        { }
-
-        public BufferPool(int size, int count, EventHandler<System.Net.Sockets.SocketAsyncEventArgs> completed)
+        public BufferPool(int size, int count, int maxCount)
         {
-            mCompleted = completed;
-            Init(size, count);
+            Init(size, count, maxCount);
         }
 
         private int mSize;
 
         private int mCount;
 
-        private void Init(int size, int count)
+        private int mMaxCount;
+
+        private void Init(int size, int count, int maxCount)
         {
+            mMaxCount = maxCount;
             Buffer item;
             mSize = size;
-            mCount = count;
             for (int i = 0; i < count; i++)
             {
                 item = CreateBuffer();
@@ -144,10 +141,13 @@ namespace BeetleX.Buffers
 
         private Buffer CreateBuffer()
         {
+            mCount = System.Threading.Interlocked.Increment(ref mCount);
+            if (mMaxCount > 0 && mCount > mMaxCount)
+            {
+                throw new BXException("Create buffer error, maximum number of buffer pools!");
+            }
             Buffer item = new Buffer(mSize);
             item.Pool = this;
-            if (mCompleted != null)
-                item.BindIOEvent(mCompleted);
             return item;
         }
 
@@ -189,13 +189,13 @@ namespace BeetleX.Buffers
             get
             {
                 if (mReceiveDefault == null)
-                    mReceiveDefault = new BufferPool(1024 * 16, 100);
+                    mReceiveDefault = new BufferPool(BUFFER_SIZE, POOL_SIZE, POOL_MAX_SIZE);
                 return mReceiveDefault;
             }
         }
 
         #region IDisposable Support
-        private bool disposedValue = false; 
+        private bool disposedValue = false;
 
         protected virtual void Dispose(bool disposing)
         {

@@ -39,7 +39,7 @@ namespace BeetleX.Dispatchs
             T item;
             if (mQueue.TryDequeue(out item))
             {
-                System.Threading.Interlocked.Increment(ref mCount);
+                System.Threading.Interlocked.Decrement(ref mCount);
             }
             return item;
         }

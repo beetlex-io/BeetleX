@@ -12,4 +12,6 @@ namespace BeetleX.Packets
 
         void Save(IBinaryWriter writer);
     }
+
+   
 }

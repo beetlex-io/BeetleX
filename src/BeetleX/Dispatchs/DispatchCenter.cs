@@ -11,6 +11,13 @@ namespace BeetleX.Dispatchs
 
         long mIndex = 1;
 
+
+
+        public DispatchCenter(Action<T> process) : this(process, Math.Min(Environment.ProcessorCount, 16))
+        {
+
+        }
+
         public DispatchCenter(Action<T> process, int count)
         {
             for (int i = 0; i < count; i++)
@@ -19,6 +26,38 @@ namespace BeetleX.Dispatchs
             }
         }
 
+
+        public void SetErrorHaneler(Action<T, Exception> handler)
+        {
+            if (handler != null)
+            {
+                foreach (var item in mDispatchers)
+                {
+                    item.ProcessError = handler;
+                }
+            }
+        }
+
+        public void Enqueue(T data, int waitLength = 5)
+        {
+            if (waitLength < 2)
+            {
+                Next().Enqueue(data);
+            }
+            else
+            {
+                for (int i = 0; i < mDispatchers.Count; i++)
+                {
+                    var item = mDispatchers[i];
+                    if (item.Count < waitLength)
+                    {
+                        item.Enqueue(data);
+                        return;
+                    }
+                }
+                Next().Enqueue(data);
+            }
+        }
 
         public SingleThreadDispatcher<T> Get(object data)
         {

@@ -14,10 +14,15 @@ namespace BeetleX
     }
 
 
-    public interface ISession : IDisposable, IDetector
+    public interface ISession : IDisposable
     {
 
-        Buffers.BufferPool BufferPool { get; set; }
+        double TimeOut
+        { get; set; }
+
+        Buffers.BufferPool ReceiveBufferPool { get; set; }
+
+        Buffers.BufferPool SendBufferPool { get; set; }
 
         void Initialization(IServer server, Action<ISession> setting);
 
@@ -26,6 +31,10 @@ namespace BeetleX
             get; set;
         }
 
+
+        Buffers.SocketAsyncEventArgsX SendEventArgs { get; set; }
+
+        Buffers.SocketAsyncEventArgsX ReceiveEventArgs { get; set; }
 
         ISessionSocketProcessHandler SocketProcessHandler
         {
@@ -40,7 +49,6 @@ namespace BeetleX
 
         System.Net.Sockets.Socket Socket
         { get; }
-
 
 
         string Name { get; set; }

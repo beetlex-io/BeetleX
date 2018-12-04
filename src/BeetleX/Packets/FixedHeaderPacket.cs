@@ -97,7 +97,7 @@ namespace BeetleX.Packets
         public byte[] Encode(object data, IServer server)
         {
             byte[] result = null;
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.SendBufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;
@@ -109,7 +109,7 @@ namespace BeetleX.Packets
 
         public ArraySegment<byte> Encode(object data, IServer server, byte[] buffer)
         {
-            using (Buffers.PipeStream stream = new PipeStream(server.BufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
+            using (Buffers.PipeStream stream = new PipeStream(server.SendBufferPool.Next(), server.Config.LittleEndian, server.Config.Encoding))
             {
                 OnEncode(null, data, stream);
                 stream.Position = 0;

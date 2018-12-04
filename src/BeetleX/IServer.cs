@@ -15,7 +15,10 @@ namespace BeetleX
         NetConfig Config
         { get; set; }
 
-        Buffers.BufferPoolGroup BufferPool
+        Buffers.BufferPoolGroup ReceiveBufferPool
+        { get; }
+
+        Buffers.BufferPoolGroup SendBufferPool
         { get; }
 
         long Version { get; }
@@ -53,8 +56,6 @@ namespace BeetleX
         ServerStatus Status { get; set; }
 
         void UpdateSession(ISession session);
-
-        void DetectionSession(int timeout);
 
         void Log(EventArgs.LogType type, ISession session, string message);
 

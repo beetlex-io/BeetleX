@@ -30,7 +30,6 @@ namespace BeetleX.Buffers
             set;
         }
 
-
         public ISession Session { get; internal set; }
 
         [ThreadStatic]
@@ -49,7 +48,7 @@ namespace BeetleX.Buffers
             this.IsReceive = true;
             this.UserToken = useToken;
 #if (NETSTANDARD2_0)
-            this.SetBuffer(0, size);
+            this.SetBuffer(BufferX.Data, 0, size);
 #else
             this.SetBuffer(BufferX.Memory);
 #endif
@@ -88,13 +87,12 @@ namespace BeetleX.Buffers
             AsyncFrom(session.Socket, useToken, size);
         }
 
-
         public void AsyncTo(System.Net.Sockets.Socket socket, object userToken, int length)
         {
             this.IsReceive = false;
             this.UserToken = userToken;
 #if (NETSTANDARD2_0)
-            this.SetBuffer(BufferX.Bytes, 0, length);
+            this.SetBuffer(BufferX.Data, 0, length);
 #else
             this.SetBuffer(BufferX.Memory.Slice(0, length));
 #endif

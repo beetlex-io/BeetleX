@@ -10,7 +10,7 @@ namespace BeetleX
     {
         public virtual void Connected(IServer server, ConnectedEventArgs e)
         {
-            if (server.Config.DetectionTime > 0)
+            if (server.Config.SessionTimeOut > 0)
                 server.UpdateSession(e.Session);
             if (server.EnableLog(LogType.Info))
                 server.Log(LogType.Info, null, "session connected from {0}@{1}", e.Session.RemoteEndPoint, e.Session.ID);
@@ -45,7 +45,36 @@ namespace BeetleX
 
         public virtual void Log(IServer server, ServerLogEventArgs e)
         {
-            Console.WriteLine("[{0}:{2}] {1}", e.Type, e.Message, DateTime.Now);
+            OnLogToConsole(server, e);
+        }
+
+        protected virtual void OnLogToConsole(IServer server, ServerLogEventArgs e)
+        {
+            lock (typeof(Console))
+            {
+                Console.Write($"[{ DateTime.Now.ToShortTimeString()}] ");
+                switch (e.Type)
+                {
+                    case LogType.Error:
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        break;
+                    case LogType.Warring:
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        break;
+                    case LogType.Fatal:
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        break;
+                    case LogType.Info:
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        break;
+                    default:
+                        Console.ForegroundColor = ConsoleColor.White;
+                        break;
+                }
+                Console.Write($"[{e.Type.ToString()}] ");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.WriteLine(e.Message);
+            }
         }
 
         public virtual void SessionDetection(IServer server, SessionDetectionEventArgs e)
@@ -58,20 +87,27 @@ namespace BeetleX
                     session.Dispose();
                     if (server.EnableLog(LogType.Info))
                     {
-                        server.Log(LogType.Info, session, "{0} detection time out", session.RemoteEndPoint);
+                        server.Log(LogType.Info, session, "{0} session time out", session.RemoteEndPoint);
                     }
                 }
             }
         }
 
-        public virtual void SessionPacketDecodeCompleted(IServer server, PacketDecodeCompletedEventArgs e)
+        protected virtual void OnReceiveMessage(IServer server, ISession session, object message)
         {
 
+        }
+
+        public virtual void SessionPacketDecodeCompleted(IServer server, PacketDecodeCompletedEventArgs e)
+        {
+            OnReceiveMessage(server, e.Session, e.Message);
         }
 
         public virtual void SessionReceive(IServer server, SessionReceiveEventArgs e)
         {
 
         }
+
+
     }
 }

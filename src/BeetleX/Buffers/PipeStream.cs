@@ -18,7 +18,7 @@ namespace BeetleX.Buffers
 
         }
 
-        public PipeStream(BufferPool pool) : this(pool, true, Encoding.UTF8) { }
+        public PipeStream(IBufferPool pool) : this(pool, true, Encoding.UTF8) { }
 
         public PipeStream(IBufferPool pool, bool littelEndian, Encoding coding)
         {
@@ -103,8 +103,6 @@ namespace BeetleX.Buffers
 
         public Stream Stream => this;
 
-        private XSpinLock mLockBuffer = new XSpinLock();
-
         private IBuffer GetReadBuffer()
         {
             if (mReadFirstBuffer == null)
@@ -148,26 +146,23 @@ namespace BeetleX.Buffers
 
         public IBuffer GetFirstBuffer()
         {
-            using (mLockBuffer.Enter())
+            IBuffer result = FirstBuffer;
+            if (result != null)
             {
-                IBuffer result = FirstBuffer;
-                if (result != null)
+                if (result.Next == null)
                 {
-                    if (result.Next == null)
-                    {
-                        mReadFirstBuffer = null;
-                        mReadLastBuffer = null;
-                        System.Threading.Interlocked.Exchange(ref mLength, 0);
-                    }
-                    else
-                    {
-                        System.Threading.Interlocked.Add(ref mLength, -result.Length);
-                        mReadFirstBuffer = result.Next;
-                        result.Next = null;
-                    }
+                    mReadFirstBuffer = null;
+                    mReadLastBuffer = null;
+                    System.Threading.Interlocked.Exchange(ref mLength, 0);
                 }
-                return result;
+                else
+                {
+                    System.Threading.Interlocked.Add(ref mLength, -result.Length);
+                    mReadFirstBuffer = result.Next;
+                    result.Next = null;
+                }
             }
+            return result;
         }
 
         public IBuffer GetWriteCacheBufers()

@@ -13,6 +13,5 @@ namespace BeetleX.EventArgs
             internal set;
         }
 
-
     }
 }
