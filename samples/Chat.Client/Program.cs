@@ -16,7 +16,7 @@ namespace Chat.Client
             };
 
 
-            client.Receive = (o, e) =>
+            client.DataReceive = (o, e) =>
             {
                 string line = e.Stream.ToPipeStream().ReadLine();
                 Cmd cmd = ChatParse.Parse(line);

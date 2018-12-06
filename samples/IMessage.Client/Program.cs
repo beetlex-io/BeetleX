@@ -25,7 +25,7 @@ namespace IMessage.Client
                     SearchEmployee search = new SearchEmployee();
                     search.Quantity = quantity;
                     client.SendMessage(search);
-                    var result = client.ReadMessage<IList<Employee>>();
+                    var result = client.ReceiveMessage<IList<Employee>>();
                     foreach (Employee item in result)
                     {
                         Console.WriteLine("\t{0} {1}", item.FirstName, item.LastName);

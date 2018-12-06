@@ -31,7 +31,7 @@ namespace Json.Client
                             SearchCustomer search = new SearchCustomer();
                             search.Quantity = quantity;
                             client.SendMessage(search);
-                            var result = client.ReadMessage<IList<Customer>>();
+                            var result = client.ReceiveMessage<IList<Customer>>();
                             foreach (Customer item in result)
                             {
                                 Console.WriteLine("\t{0}", item.CompanyName);
@@ -52,7 +52,7 @@ namespace Json.Client
                             SearchEmployee search = new SearchEmployee();
                             search.Quantity = quantity;
                             client.SendMessage(search);
-                            var result = client.ReadMessage<IList<Employee>>();
+                            var result = client.ReceiveMessage<IList<Employee>>();
                             foreach (Employee item in result)
                             {
                                 Console.WriteLine("\t{0} {1}", item.FirstName, item.LastName);

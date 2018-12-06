@@ -14,7 +14,7 @@ namespace Protobuf.Client
             packet.Register(typeof(Employee).Assembly);
             TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090);
             //TcpClient client = SocketFactory.CreateClient<TcpClient>(packet, "127.0.0.1", 9090,"localhost");
-         
+
             while (true)
             {
                 Console.Write("select search category 1.customer  2.employee :");
@@ -32,7 +32,7 @@ namespace Protobuf.Client
                             SearchCustomer search = new SearchCustomer();
                             search.Quantity = quantity;
                             client.SendMessage(search);
-                            var result = client.ReadMessage<IList<Customer>>();
+                            var result = client.ReceiveMessage<IList<Customer>>();
                             foreach (Customer item in result)
                             {
                                 Console.WriteLine("\t{0}", item.CompanyName);
@@ -53,7 +53,7 @@ namespace Protobuf.Client
                             SearchEmployee search = new SearchEmployee();
                             search.Quantity = quantity;
                             client.SendMessage(search);
-                            var result = client.ReadMessage<IList<Employee>>();
+                            var result = client.ReceiveMessage<IList<Employee>>();
                             foreach (Employee item in result)
                             {
                                 Console.WriteLine("\t{0} {1}", item.FirstName, item.LastName);

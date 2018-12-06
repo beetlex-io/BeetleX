@@ -16,7 +16,7 @@ namespace Echo.Client
                 var line = Console.ReadLine();
                 client.Stream.ToPipeStream().WriteLine(line);
                 client.Stream.Flush();
-                var reader = client.Read();
+                var reader = client.Receive();
                 line = reader.ToPipeStream().ReadLine();
                 Console.WriteLine(line);
             }
