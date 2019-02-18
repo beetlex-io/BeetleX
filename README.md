@@ -6,9 +6,9 @@ beetleX是基于dotnet core实现的轻量级高性能的TCP通讯组件，使�
 ### [性能比Go iris更出色的WEB服务](https://github.com/IKende/FastHttpApi)
 
 
-[BeetleX实现单服千万级消息推送](http://www.ikende.com/Doc/1d887337760a47678be21ac9fb443d25.html)
+[BeetleX实现单服千万级消息推送](http://www.ikende.com/blog/73.html)
 
-[BeetleX实现单服务百万RPS吞吐](http://www.ikende.com/Doc/1ac8ead7308a485fa2ec6f83349b6b68.html)
+[BeetleX实现单服务百万RPS吞吐](http://www.ikende.com/blog/72.html)
 
 ### PipeStream
 ![PipeStream](https://i.imgur.com/16wjO0R.png) 
