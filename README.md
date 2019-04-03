@@ -5,7 +5,7 @@ high performance dotnet core socket tcp communication components support ssl
     [https://github.com/IKende/FastHttpApi](https://github.com/IKende/FastHttpApi)
 - High performance webapi gateway components  
   [https://github.com/IKende/Bumblebee](https://github.com/IKende/Bumblebee)
-- high-performance async/non-blocking  redis client components for dotnet core 
+- high-performance async/non-blocking  redis client components for dotnet core    
   [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
 
 
