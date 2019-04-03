@@ -1,5 +1,13 @@
 # BeetleX
 high performance dotnet core socket tcp communication components support ssl
+## Extended Components
+- High performance and lightweight web api server components    
+    [https://github.com/IKende/FastHttpApi](https://github.com/IKende/FastHttpApi)
+- High performance webapi gateway components  
+  [https://github.com/IKende/Bumblebee](https://github.com/IKende/Bumblebee)
+- high-performance async/non-blocking  redis client components for dotnet core 
+  [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
+
 
 ### Performance testing
 Server:E3-1230V2
