@@ -19,11 +19,10 @@ namespace MsgPack.Server
             mEmployees = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Employee>>(Datas.Employees);
             mCustomers = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Customer>>(Datas.Customers);
 
-            NetConfig config = new NetConfig();
-            //config.SSL = true;
-            //config.CertificateFile = @"c:\ssltest.pfx";
-            //config.CertificatePassword = "123456";
-            mServer = SocketFactory.CreateTcpServer<Program, MagPack.Messages.Packet>(config);
+            mServer = SocketFactory.CreateTcpServer<Program, MagPack.Messages.Packet>();
+            //server.Options.DefaultListen.CertificateFile = "text.pfx";
+            //server.Options.DefaultListen.SSL = true;
+            //server.Options.DefaultListen.CertificatePassword = "123456";
             mServer.Open();
             while (true)
             {

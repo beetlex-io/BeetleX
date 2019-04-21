@@ -16,14 +16,13 @@ namespace IMessage.Server
         public static void Main(string[] args)
         {
 
-            NetConfig config = new NetConfig();
-            //config.SSL = true;
-            //config.CertificateFile = @"c:\ssltest.pfx";
-            //config.CertificatePassword = "123456";
             DefaultPacket packet = new DefaultPacket();
             packet.Register(typeof(Employee).Assembly);
             mEmployees = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Employee>>(Datas.Employees);
-            mServer = SocketFactory.CreateTcpServer(config, new Program(), packet);
+            mServer = SocketFactory.CreateTcpServer(new Program(), packet);
+            //server.Options.DefaultListen.CertificateFile = "text.pfx";
+            //server.Options.DefaultListen.SSL = true;
+            //server.Options.DefaultListen.CertificatePassword = "123456";
             mServer.Open();
             Console.Write(mServer);
             Console.Read();

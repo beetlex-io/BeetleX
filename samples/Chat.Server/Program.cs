@@ -9,11 +9,11 @@ namespace Chat.Server
         private static IServer server;
         public static void Main(string[] args)
         {
-            NetConfig config = new NetConfig();
-            //config.SSL = true;
-            //config.CertificateFile = @"c:\ssltest.pfx";
-            //config.CertificatePassword = "123456";
-            server = SocketFactory.CreateTcpServer<Program>(config);
+
+            server = SocketFactory.CreateTcpServer<Program>();
+            //server.Options.DefaultListen.CertificateFile = "text.pfx";
+            //server.Options.DefaultListen.SSL = true;
+            //server.Options.DefaultListen.CertificatePassword = "123456";
             server.Open();
             Console.Write(server);
             Console.Read();

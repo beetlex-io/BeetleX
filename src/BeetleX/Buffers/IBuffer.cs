@@ -10,7 +10,9 @@ namespace BeetleX.Buffers
     {
         long ID { get; }
 
-        byte[] Bytes { get; }
+        byte[] Data { get; }
+
+        Memory<byte> Memory { get; }
 
         int Length { get; }
 
@@ -20,9 +22,6 @@ namespace BeetleX.Buffers
     public interface IBuffer : IMemoryBlock
     {
 
-        Memory<byte> Memory { get; }
-
-        byte[] Data { get; }
 
         bool Eof { get; }
 
@@ -565,8 +564,6 @@ namespace BeetleX.Buffers
 
         public int Size => mSize;
 
-        public byte[] Bytes => mBufferData;
-
         public IMemoryBlock NextMemory => Next;
 
         public int FreeSpace => mFree;
@@ -648,8 +645,8 @@ namespace BeetleX.Buffers
                 }
                 else
                 {
-
                     Last.Next = buffer;
+                    Last = buffer;
                     IBuffer next = buffer.Next;
                     while (next != null)
                     {
@@ -659,8 +656,6 @@ namespace BeetleX.Buffers
                 }
             }
         }
-
-
     }
 
 }

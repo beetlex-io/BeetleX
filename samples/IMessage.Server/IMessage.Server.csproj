@@ -6,11 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BeetleX" Version="1.2.6.5" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
   </ItemGroup>
 
   <ItemGroup>

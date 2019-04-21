@@ -86,17 +86,40 @@ namespace BeetleX.Buffers
             }
         }
 
-        public BufferPool Next()
+        public IBufferPool Next()
         {
             long i = System.Threading.Interlocked.Increment(ref mIndex);
             return bufferPools[(int)(i % bufferPools.Count)];
+        }
+
+        private static BufferPoolGroup mDefaultGroup;
+
+        public static BufferPoolGroup DefaultGroup
+        {
+            get
+            {
+                if (mDefaultGroup == null)
+                {
+                    lock (typeof(BufferPoolGroup))
+                    {
+                        if (mDefaultGroup == null)
+                        {
+                            int count = Math.Min(Environment.ProcessorCount, 16);
+                            int poolSize = BufferPool.POOL_SIZE / count;
+                            int poolMaxSize = BufferPool.POOL_MAX_SIZE / count;
+                            mDefaultGroup = new BufferPoolGroup(BufferPool.BUFFER_SIZE, poolSize, poolMaxSize, count);
+                        }
+                    }
+                }
+                return mDefaultGroup;
+            }
         }
     }
 
     public class BufferPool : IBufferPool
     {
 
-        public static int BUFFER_SIZE = 1024 * 8;
+        public static int BUFFER_SIZE = 1024 * 4;
 
         public static int POOL_SIZE = 1024;
 
@@ -105,7 +128,6 @@ namespace BeetleX.Buffers
         public BufferPool()
         {
             Init(BUFFER_SIZE, POOL_SIZE, POOL_MAX_SIZE);
-
         }
 
         public BufferPool(int size, int count, int maxCount)
@@ -168,30 +190,6 @@ namespace BeetleX.Buffers
         public void Push(IBuffer item)
         {
             mPool.Enqueue(item);
-        }
-
-        private static BufferPool mDefault;
-
-        public static BufferPool Default
-        {
-            get
-            {
-                if (mDefault == null)
-                    mDefault = new BufferPool();
-                return mDefault;
-            }
-        }
-
-        private static BufferPool mReceiveDefault;
-
-        internal static BufferPool ReceiveDefault
-        {
-            get
-            {
-                if (mReceiveDefault == null)
-                    mReceiveDefault = new BufferPool(BUFFER_SIZE, POOL_SIZE, POOL_MAX_SIZE);
-                return mReceiveDefault;
-            }
         }
 
         #region IDisposable Support

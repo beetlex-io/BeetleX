@@ -13,6 +13,9 @@ namespace BeetleX.Buffers
             BufferPool = pool;
             Encoding = encoding;
             LittleEndian = littleEndian;
+            mPipeStream = new PipeStream(BufferPool, LittleEndian, Encoding);
+            mPipeStream.FlashCompleted = OnWriterFlash;
+            mPipeStream.InnerStream = this;
         }
 
         public SslStreamX(
@@ -22,6 +25,9 @@ namespace BeetleX.Buffers
             BufferPool = pool;
             Encoding = encoding;
             LittleEndian = littleEndian;
+            mPipeStream = new PipeStream(BufferPool, LittleEndian, Encoding);
+            mPipeStream.FlashCompleted = OnWriterFlash;
+            mPipeStream.InnerStream = this;
         }
 
 
@@ -47,14 +53,42 @@ namespace BeetleX.Buffers
 
         public PipeStream GetPipeStream()
         {
-            if (mPipeStream == null)
-            {
-                mPipeStream = new PipeStream(BufferPool, LittleEndian, Encoding);
-                mPipeStream.FlashCompleted = OnWriterFlash;
-                mPipeStream.InnerStream = this;
-            }
-            StreamHelper.ToPipeStream(this, mPipeStream);
             return mPipeStream;
+        }
+
+        public Exception SyncDataError { get; set; }
+
+        public bool AsyncDataStatus { get; set; }
+
+        public async void SyncData()
+        {
+
+            while (true)
+            {
+                var dest = GetPipeStream();
+                IBuffer buffer = BufferPoolGroup.DefaultGroup.Next().Pop();
+                try
+                {
+                    int rlen = await ReadAsync(buffer.Data, 0, buffer.Size);
+                    if (rlen > 0)
+                    {
+                        buffer.SetLength(rlen);
+                        dest.Import(buffer);
+                    }
+                    else
+                    {
+                        buffer.Free();
+                        break;
+                    }
+
+                }
+                catch (Exception e_)
+                {
+                    SyncDataError = e_;
+                    buffer.Free();
+                    break;
+                }
+            }
         }
 
         protected override void Dispose(bool disposing)

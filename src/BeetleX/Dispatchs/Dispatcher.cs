@@ -15,7 +15,9 @@ namespace BeetleX.Dispatchs
             mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
         }
 
-        private int mRunStatus = 0;
+        private readonly object _workSync = new object();
+
+        private bool _doingWork;
 
         private int mCount;
 
@@ -25,71 +27,52 @@ namespace BeetleX.Dispatchs
 
         public Action<T, Exception> ProcessError { get; set; }
 
-        public int Count => mCount;
+        public int Count => System.Threading.Interlocked.Add(ref mCount, 0);
 
         public void Enqueue(T item)
         {
             mQueue.Enqueue(item);
             System.Threading.Interlocked.Increment(ref mCount);
-            CheckStart();
-        }
-
-        private T Dequeue()
-        {
-            T item;
-            if (mQueue.TryDequeue(out item))
+            lock (_workSync)
             {
-                System.Threading.Interlocked.Decrement(ref mCount);
-            }
-            return item;
-        }
-
-        private void CheckStart()
-        {
-            if (System.Threading.Interlocked.CompareExchange(ref mRunStatus, 1, 0) == 0)
-            {
-                if (mCount > 0)
+                if (!_doingWork)
                 {
-                    ThreadPool.UnsafeQueueUserWorkItem(OnStart, null);
-                }
-                else
-                {
-                    System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
+                    System.Threading.ThreadPool.UnsafeQueueUserWorkItem(OnStart, this);
+                    _doingWork = true;
                 }
             }
         }
-
         private void OnStart(object state)
         {
-            try
+
+            while (true)
             {
-                while (true)
+                while (mQueue.TryDequeue(out T item))
                 {
-                    T item = Dequeue();
-                    if (item != null)
+                    System.Threading.Interlocked.Decrement(ref mCount);
+                    try
+                    {
+                        Process(item);
+                    }
+                    catch (Exception e_)
                     {
                         try
                         {
-                            Process(item);
+                            ProcessError?.Invoke(item, e_);
                         }
-                        catch (Exception e_)
-                        {
-                            try
-                            {
-                                ProcessError?.Invoke(item, e_);
-                            }
-                            catch { }
-                        }
+                        catch { }
                     }
-                    else
-                        break;
+                }
+
+                lock (_workSync)
+                {
+                    if (mQueue.IsEmpty)
+                    {
+                        _doingWork = false;
+                        return;
+                    }
                 }
             }
-            finally
-            {
-                System.Threading.Interlocked.Exchange(ref mRunStatus, 0);
-            }
-            CheckStart();
         }
 
         public void Dispose()

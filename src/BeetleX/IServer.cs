@@ -12,14 +12,16 @@ namespace BeetleX
         int Count
         { get; }
 
-        NetConfig Config
-        { get; set; }
+        ServerOptions Options
+        { get; }
 
         Buffers.BufferPoolGroup ReceiveBufferPool
         { get; }
 
         Buffers.BufferPoolGroup SendBufferPool
         { get; }
+
+        IServer Setting(Action<ServerOptions> handler);
 
         long Version { get; }
 
@@ -34,8 +36,6 @@ namespace BeetleX
         long GetRunTime();
 
         string Name { get; set; }
-
-        X509Certificate2 Certificate { get; }
 
         IServerHandler Handler
         {

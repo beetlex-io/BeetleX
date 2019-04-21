@@ -10,7 +10,7 @@ namespace BeetleX
     {
         public virtual void Connected(IServer server, ConnectedEventArgs e)
         {
-            if (server.Config.SessionTimeOut > 0)
+            if (server.Options.SessionTimeOut > 0)
                 server.UpdateSession(e.Session);
             if (server.EnableLog(LogType.Info))
                 server.Log(LogType.Info, null, "session connected from {0}@{1}", e.Session.RemoteEndPoint, e.Session.ID);
@@ -52,7 +52,7 @@ namespace BeetleX
         {
             lock (typeof(Console))
             {
-                Console.Write($"[{ DateTime.Now.ToShortTimeString()}] ");
+                Console.Write($"[{ DateTime.Now.ToString("HH:mmm:ss")}] ");
                 switch (e.Type)
                 {
                     case LogType.Error:

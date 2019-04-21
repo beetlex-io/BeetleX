@@ -260,7 +260,7 @@ namespace BeetleX
                 }
                 else
                 {
-                    PipeStream pipetream = new PipeStream(BufferPool.Default, littleEndian, encoding);
+                    PipeStream pipetream = new PipeStream(BufferPoolGroup.DefaultGroup.Next(), littleEndian, encoding);
                     pipetream.WriteShortUTF(value);
                     Copy(pipeStream, stream);
                     pipetream.Dispose();
@@ -290,7 +290,7 @@ namespace BeetleX
                 }
                 else
                 {
-                    PipeStream pipetream = new PipeStream(BufferPool.Default, littleEndian, encoding);
+                    PipeStream pipetream = new PipeStream(BufferPoolGroup.DefaultGroup.Next(), littleEndian, encoding);
                     pipetream.WriteUTF(value);
                     Copy(pipeStream, stream);
                     pipetream.Dispose();
@@ -327,14 +327,14 @@ namespace BeetleX
             int rlen = 0;
             while (true)
             {
-                IBuffer buffer = BufferPool.Default.Pop();
+                IBuffer buffer = BufferPoolGroup.DefaultGroup.Next().Pop();
                 int offset = 0;
                 int size = buffer.Size;
                 int bufferlen = 0;
-                NEXT:
-                if (length > buffer.Size)
+            NEXT:
+                if (length > size)
                 {
-                    rlen = source.Read(buffer.Data, offset, buffer.Size);
+                    rlen = source.Read(buffer.Data, offset, size);
                 }
                 else
                 {
@@ -346,6 +346,10 @@ namespace BeetleX
                     {
                         buffer.SetLength(bufferlen);
                         dest.Import(buffer);
+                    }
+                    else
+                    {
+                        buffer.Free();
                     }
                     return;
                 }

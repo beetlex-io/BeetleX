@@ -14,22 +14,19 @@ using System.Net;
 namespace BeetleX
 {
     class TcpServer : IServer
-
     {
 
-        public TcpServer(NetConfig config)
+        public TcpServer()
         {
-            Config = config;
+            Options = new ServerOptions();
             Name = "TCP-SERVER-" + Guid.NewGuid().ToString("N");
         }
-
-        private Socket mSocket;
 
         private int mCount;
 
         private Dispatchs.DispatchCenter<SocketAsyncEventArgsX> mReceiveDispatchCenter = null;
 
-        private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
+       // private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
 
         private long mVersion = 0;
 
@@ -45,17 +42,11 @@ namespace BeetleX
 
         private long mSendBytes;
 
-        private System.Net.IPEndPoint mIPEndPoint;
-
-        private X509Certificate2 mCertificate;
-
         private Buffers.BufferPoolGroup mReceiveBufferPoolGroup;
 
         private Buffers.BufferPoolGroup mSendBufferPoolGroup;
 
         private System.Threading.Timer mDetectionTimer;
-
-        public IPEndPoint IPEndPoint => mIPEndPoint;
 
         public long ReceivBytes
         {
@@ -89,10 +80,10 @@ namespace BeetleX
             }
         }
 
-        public NetConfig Config
+        public ServerOptions Options
         {
             get;
-            set;
+            private set;
         }
 
         public string Name
@@ -120,6 +111,7 @@ namespace BeetleX
                 return mVersion;
             }
         }
+
         public Buffers.BufferPoolGroup SendBufferPool
         {
             get
@@ -127,6 +119,7 @@ namespace BeetleX
                 return mSendBufferPoolGroup;
             }
         }
+
         public BufferPoolGroup ReceiveBufferPool
         {
             get
@@ -150,9 +143,6 @@ namespace BeetleX
                 return mCount;
             }
         }
-
-
-        public X509Certificate2 Certificate => mCertificate;
 
         private void AddSession(ISession session)
         {
@@ -186,35 +176,39 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs,
-                    Math.Min(Environment.ProcessorCount, 16));
+                int threads = (Environment.ProcessorCount / 2);
+                if (threads == 0)
+                    threads = 1;
+                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs, Math.Min(threads, 16));
                 int maxBufferSize;
-                if (Config.BufferPoolMaxMemory == 0)
+                if (Options.BufferPoolMaxMemory == 0)
                 {
-                    Config.BufferPoolMaxMemory = 500;
+                    Options.BufferPoolMaxMemory = 500;
                 }
-                maxBufferSize = Config.BufferPoolMaxMemory * 1024 * 1024 / Config.BufferSize / Math.Min(Environment.ProcessorCount, 16) / 2;
-                if (maxBufferSize < Config.BufferPoolSize)
-                    maxBufferSize = Config.BufferPoolSize;
-                mReceiveBufferPoolGroup = new BufferPoolGroup(Config.BufferSize, Config.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
-                mSendBufferPoolGroup = new BufferPoolGroup(Config.BufferSize, Config.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
-                if (Config.SendQueueEnabled)
-                {
-                    mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Config.SendQueues);
-                }
+                maxBufferSize = Options.BufferPoolMaxMemory * 1024 * 1024 / Options.BufferSize / Math.Min(Environment.ProcessorCount, 16) / 2;
+                if (maxBufferSize < Options.BufferPoolSize)
+                    maxBufferSize = Options.BufferPoolSize;
+                mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
+                mSendBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
+                //if (Options.SendQueueEnabled)
+                //{
+                //    mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Options.SendQueues);
+                //}
                 mSessions = new ConcurrentDictionary<long, ISession>();
                 mInitialized = true;
-                mAcceptDispatcher = new Dispatchs.DispatchCenter<Socket>(AcceptProcess, Math.Min(Environment.ProcessorCount, 16));
-                if (Config.SessionTimeOut > 0)
+                mAcceptDispatcher = new Dispatchs.DispatchCenter<AcceptSocketInfo>(AcceptProcess, Math.Min(Environment.ProcessorCount, 16));
+                if (Options.SessionTimeOut > 0)
                 {
-                    if (Config.SessionTimeOut * 1000 < mTimeOutCheckTime)
-                        mTimeOutCheckTime = Config.SessionTimeOut * 1000;
+                    if (Options.SessionTimeOut * 1000 < mTimeOutCheckTime)
+                        mTimeOutCheckTime = Options.SessionTimeOut * 1000;
+                    else
+                        mTimeOutCheckTime = Options.SessionTimeOut * 1000;
 
                     if (mDetectionTimer != null)
                         mDetectionTimer.Dispose();
                     mDetectionTimer = new System.Threading.Timer(OnDetectionHandler, null,
                         mTimeOutCheckTime, mTimeOutCheckTime);
-                    Log(LogType.Info, null, "detection sessions timeout with {0}s", Config.SessionTimeOut);
+                    Log(LogType.Info, null, "detection sessions timeout with {0}s", Options.SessionTimeOut);
                 }
             }
         }
@@ -250,53 +244,30 @@ namespace BeetleX
             }
         }
 
+        private void OnListenAcceptCallBack(AcceptSocketInfo e)
+        {
+            mAcceptDispatcher.Enqueue(e);
+            //Task.Run(() => AcceptProcess(e));
+        }
+
         public bool Open()
         {
             try
             {
-                if (Config.SSL)
-                {
-                    if (string.IsNullOrEmpty(Config.CertificateFile))
-                    {
-                        throw new BXException("no the services ssl certificate file");
-                    }
-                    this.mCertificate = new X509Certificate2(Config.CertificateFile, Config.CertificatePassword);
-                }
-                System.Net.IPAddress address;
-                if (string.IsNullOrEmpty(Config.Host))
-                {
-                    if (Socket.OSSupportsIPv6 && Config.UseIPv6)
-                    {
-                        address = IPAddress.IPv6Any;
-                    }
-                    else
-                    {
-                        address = IPAddress.Any;
-                    }
-                }
-                else
-                {
-                    address = System.Net.IPAddress.Parse(Config.Host);
-                }
-                mIPEndPoint = new System.Net.IPEndPoint(address, Config.Port);
-                mSocket = new Socket(mIPEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                if (mIPEndPoint.Address == IPAddress.IPv6Any)
-                {
-                    mSocket.DualMode = true;
-                }
-                mSocket.Bind(mIPEndPoint);
-                mSocket.Listen(512);
+
                 ToInitialize();
                 Status = ServerStatus.Start;
-                Task.Run(() => BeginAccept());
+                foreach (ListenHandler item in this.Options.Listens)
+                {
+                    item.Run(this, OnListenAcceptCallBack);
+                }
                 if (!GCSettings.IsServerGC)
                 {
                     if (EnableLog(LogType.Warring))
                         Log(LogType.Warring, null, "no serverGC mode,please enable serverGC mode!");
                 }
-                Log(LogType.Info, null, $"BeetleX started@{mIPEndPoint.Address}:{Config.Port} [serverGC:{GCSettings.IsServerGC}] [IOQueue:{Config.IOQueueEnabled}] [V:{typeof(TcpServer).Assembly.GetName().Version}]");
+                Log(LogType.Info, null, $"BeetleX server info:[serverGC:{GCSettings.IsServerGC}] [IOQueue:{Options.IOQueueEnabled}] [V:{typeof(TcpServer).Assembly.GetName().Version}]");
                 return true;
-
             }
             catch (Exception e_)
             {
@@ -322,46 +293,51 @@ namespace BeetleX
 
         #region session accept
 
-        private static void SslAuthenticateAsyncCallback(IAsyncResult ar)
+        private void SslAuthenticateAsyncCallback(IAsyncResult ar)
         {
             Tuple<TcpSession, SslStream> state = (Tuple<TcpSession, SslStream>)ar.AsyncState;
             ISession session = state.Item1;
             TcpServer server = (TcpServer)session.Server;
             try
             {
-                if (server.EnableLog(LogType.Debug))
-                    server.Log(LogType.Debug, session, "{0} end ssl Authenticate", session.RemoteEndPoint);
+                if (server.EnableLog(LogType.Info))
+                    server.Log(LogType.Info, session, "{0} end ssl Authenticate", session.RemoteEndPoint);
                 SslStream sslStream = state.Item2;
                 sslStream.EndAuthenticateAsServer(ar);
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
                 cead.Server = server;
                 cead.Session = session;
                 server.OnConnected(cead);
+                ((TcpSession)session).SyncSSLData();
                 server.BeginReceive(state.Item1);
-                if (server.EnableLog(LogType.Debug))
-                    server.Log(LogType.Debug, session, "{0} begin receive", session.RemoteEndPoint);
+                if (server.EnableLog(LogType.Info))
+                    server.Log(LogType.Info, session, "{0} begin receive", session.RemoteEndPoint);
 
             }
             catch (Exception e_)
             {
-                if (server.EnableLog(LogType.Error))
-                    server.Error(e_, state.Item1, "create session ssl authenticate callback error {0}", e_.Message);
-                session.Dispose();
+                if (this.EnableLog(LogType.Error))
+                    this.Error(e_, state?.Item1, "create session ssl authenticate callback error {0}", e_.Message);
+                if (session != null)
+                    session.Dispose();
             }
         }
 
-        private void ConnectedProcess(System.Net.Sockets.Socket e)
+        private void ConnectedProcess(AcceptSocketInfo e)
         {
             TcpSession session = new TcpSession();
-            session.Socket = e;
+            session.Socket = e.Socket;
+            session.Server = this;
+            session.Host = e.Listen.Host;
+            session.Port = e.Listen.Port;
             session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
             session.SendBufferPool = this.SendBufferPool.Next();
-            session.SSL = Config.SSL;
+            session.SSL = e.Listen.SSL;
             session.Initialization(this, null);
             session.SendEventArgs.Completed += IO_Completed;
             session.ReceiveEventArgs.Completed += IO_Completed;
-            session.LittleEndian = Config.LittleEndian;
-            session.RemoteEndPoint = e.RemoteEndPoint;
+            session.LittleEndian = Options.LittleEndian;
+            session.RemoteEndPoint = e.Socket.RemoteEndPoint;
             if (this.Packet != null)
             {
                 session.Packet = this.Packet.Clone();
@@ -369,49 +345,51 @@ namespace BeetleX
             }
 
             session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
-            if (Config.SendQueueEnabled)
-            {
-                session.SendDispatcher = mSendDispatchCenter.Next();
-            }
+            //if (Options.SendQueueEnabled)
+            //{
+            //    session.SendDispatcher = mSendDispatchCenter.Next();
+            //}
             AddSession(session);
-            if (!Config.SSL)
+            if (!e.Listen.SSL)
             {
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
                 cead.Server = this;
                 cead.Session = session;
                 OnConnected(cead);
                 if (EnableLog(LogType.Debug))
-                    Log(LogType.Debug, session, "{0} begin receive", e.RemoteEndPoint);
+                    Log(LogType.Debug, session, "{0} begin receive", session.RemoteEndPoint);
                 BeginReceive(session);
 
             }
             else
             {
-                session.CreateSSL(SslAuthenticateAsyncCallback);
-                if (EnableLog(LogType.Debug))
-                    Log(LogType.Debug, session, "{0} begin ssl Authenticate", e.RemoteEndPoint);
+                if (EnableLog(LogType.Info))
+                    Log(LogType.Info, session, "{0} begin ssl Authenticate", session.RemoteEndPoint);
+                session.CreateSSL(SslAuthenticateAsyncCallback, e.Listen, this);
             }
         }
 
-        private void AcceptProcess(System.Net.Sockets.Socket e)
+        private Dispatchs.DispatchCenter<AcceptSocketInfo> mAcceptDispatcher;
+
+        private void AcceptProcess(AcceptSocketInfo e)
         {
             try
             {
                 EventArgs.ConnectingEventArgs cea = new EventArgs.ConnectingEventArgs();
                 cea.Server = this;
-                cea.Socket = e;
-                EndPoint endPoint = e.RemoteEndPoint;
+                cea.Socket = e.Socket;
+                EndPoint endPoint = e.Socket.RemoteEndPoint;
                 OnConnecting(cea);
                 if (cea.Cancel)
                 {
                     if (EnableLog(LogType.Debug))
                         Log(LogType.Debug, null, $"cancel {endPoint} connect");
-                    CloseSocket(e);
+                    CloseSocket(e.Socket);
 
                 }
                 else
                 {
-                    if (e.Connected)
+                    if (e.Socket.Connected)
                     {
                         ConnectedProcess(e);
                         if (EnableLog(LogType.Debug))
@@ -430,49 +408,9 @@ namespace BeetleX
                     Error(e_, null, "accept socket process error");
             }
 
-
         }
 
-        private Dispatchs.DispatchCenter<Socket> mAcceptDispatcher;
 
-        private void BeginAccept()
-        {
-            try
-            {
-                while (true)
-                {
-                    if (Status == ServerStatus.Stop)
-                    {
-                        System.Threading.Thread.Sleep(1000);
-                        if (EnableLog(LogType.Warring))
-                            Log(LogType.Warring, null, "server accept stop!");
-                        continue;
-                    }
-                    if (Status == ServerStatus.Closed)
-                    {
-                        break;
-                    }
-                    if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, null, "socket begin accept");
-                    var acceptSocket = mSocket.Accept();
-                    if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, null, "{0} socket accept completed ", acceptSocket.RemoteEndPoint);
-                    mAcceptDispatcher.Enqueue(acceptSocket);
-                }
-            }
-            catch (Exception e_)
-            {
-                if (EnableLog(LogType.Error))
-                    Error(e_, null, "server accept error!");
-                Status = ServerStatus.AcceptError;
-            }
-            finally
-            {
-                if (EnableLog(LogType.Warring))
-                    Log(LogType.Warring, null, "server accept quit!");
-            }
-
-        }
 
         #endregion
 
@@ -521,10 +459,10 @@ namespace BeetleX
                 if (session.Server.EnableLog(LogType.Trace))
                 {
                     session.Server.Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
-                         BitConverter.ToString(ex.BufferX.Bytes, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                         BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
                         );
                 }
-                if (this.Config.Statistical)
+                if (this.Options.Statistical)
                 {
                     System.Threading.Interlocked.Increment(ref mReceiveQuantity);
                     System.Threading.Interlocked.Add(ref mReceivBytes, e.BytesTransferred);
@@ -554,7 +492,7 @@ namespace BeetleX
             {
                 if (e.SocketError == System.Net.Sockets.SocketError.Success && e.BytesTransferred > 0)
                 {
-                    if (session.Server.Config.IOQueueEnabled)
+                    if (session.Server.Options.IOQueueEnabled)
                     {
                         ((TcpSession)session).ReceiveDispatcher.Enqueue(ex);
                     }
@@ -592,10 +530,10 @@ namespace BeetleX
                     if (session.Server.EnableLog(LogType.Trace))
                     {
                         session.Server.Log(LogType.Trace, session, "{0} send hex:{1}", session.RemoteEndPoint,
-                             BitConverter.ToString(ex.BufferX.Bytes, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                             BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
                             );
                     }
-                    if (this.Config.Statistical)
+                    if (this.Options.Statistical)
                     {
                         System.Threading.Interlocked.Increment(ref mSendQuantity);
                         System.Threading.Interlocked.Add(ref mSendBytes, e.BytesTransferred);
@@ -616,6 +554,7 @@ namespace BeetleX
                         }
                         else
                         {
+                            ((TcpSession)session).SendCompleted();
                             if (session.SocketProcessHandler != null)
                             {
                                 try
@@ -628,7 +567,6 @@ namespace BeetleX
                                         Error(ce_, ex.Session, "{0} send data completed process handler error {1}!", ex.Session.RemoteEndPoint, ce_.Message);
                                 }
                             }
-                            ((TcpSession)session).SendCompleted();
                         }
                     }
                 }
@@ -825,7 +763,8 @@ namespace BeetleX
             mInitialized = false;
 
             Status = ServerStatus.Closed;
-            CloseSocket(mSocket);
+            foreach (var item in Options.Listens)
+                item.Dispose();
             if (mReceiveDispatchCenter != null)
                 mReceiveDispatchCenter.Dispose();
 
@@ -873,7 +812,7 @@ namespace BeetleX
                 }
                 else
                 {
-                    if (Config.Combined > 0 && sessions.Count >= Config.Combined)
+                    if (Options.Combined > 0 && sessions.Count >= Options.Combined)
                     {
                         byte[] data = Packet.Encode(message, this);
                         return OnSend(data, sessions);
@@ -894,8 +833,8 @@ namespace BeetleX
 
         public void UpdateSession(ISession session)
         {
-            if (Config.SessionTimeOut > 0)
-                session.TimeOut = GetRunTime() + Config.SessionTimeOut * 1000;
+            if (Options.SessionTimeOut > 0)
+                session.TimeOut = GetRunTime() + Options.SessionTimeOut * 1000;
             if (EnableLog(LogType.Debug))
             {
                 Log(LogType.Debug, session, "{0} update active time", session.RemoteEndPoint);
@@ -955,7 +894,10 @@ namespace BeetleX
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             if (this.Status == ServerStatus.Start)
             {
-                sb.AppendFormat("{0} Listen {1}:{2}\r\n", Name, mIPEndPoint.Address, mIPEndPoint.Port);
+                foreach (ListenHandler item in Options.Listens)
+                {
+                    sb.AppendFormat($"Listen @ {item.IPEndPoint}\r\n");
+                }
                 sb.AppendFormat("Connections:{0}    \r\n",
                     Count.ToString("###,###,##0").PadLeft(15));
 
@@ -987,7 +929,14 @@ namespace BeetleX
 
         public bool EnableLog(LogType logType)
         {
-            return (int)(this.Config.LogLevel) <= (int)logType;
+            return (int)(this.Options.LogLevel) <= (int)logType;
+        }
+
+        public IServer Setting(Action<ServerOptions> handler)
+        {
+            if (handler != null)
+                handler(this.Options);
+            return this;
         }
     }
 }

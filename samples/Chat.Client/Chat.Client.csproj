@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
+    <PackageReference Include="BeetleX" Version="1.2.6.5" />
   </ItemGroup>
 
 </Project>

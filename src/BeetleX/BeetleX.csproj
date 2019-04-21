@@ -5,11 +5,11 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.1.6.0</AssemblyVersion>
-    <FileVersion>1.1.6.0</FileVersion>
-    <Version>1.1.6.0</Version>
+    <AssemblyVersion>1.2.6.5</AssemblyVersion>
+    <FileVersion>1.2.6.5</FileVersion>
+    <Version>1.2.6.5</Version>
     <Description>dotnet core high performance socket tcp communication components support SSL</Description>
-    <Copyright>Copyright © ikende.com 2018 email:henryfan@msn.com</Copyright>
+    <Copyright>Copyright © ikende.com 2019 email:henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/IKende/FastHttpApi/blob/master/LICENSE</PackageLicenseUrl>
     <Company>ikende.com</Company>
@@ -26,13 +26,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Buffers\BinaryReader.cs" />
-    <Compile Remove="Buffers\BinaryWriter.cs" />
+    <Compile Remove="Blocks\**" />
+    <EmbeddedResource Remove="Blocks\**" />
+    <None Remove="Blocks\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Memory" Version="4.5.1" />
-    <PackageReference Include="System.Runtime" Version="4.3.0" />
+    <Compile Remove="Buffers\BinaryReader.cs" />
+    <Compile Remove="Buffers\BinaryWriter.cs" />
   </ItemGroup>
 
 </Project>

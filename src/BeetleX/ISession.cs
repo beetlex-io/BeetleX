@@ -20,9 +20,13 @@ namespace BeetleX
         double TimeOut
         { get; set; }
 
-        Buffers.BufferPool ReceiveBufferPool { get; set; }
+        string Host { get; set; }
 
-        Buffers.BufferPool SendBufferPool { get; set; }
+        int Port { get; set; }
+
+        Buffers.IBufferPool ReceiveBufferPool { get; set; }
+
+        Buffers.IBufferPool SendBufferPool { get; set; }
 
         void Initialization(IServer server, Action<ISession> setting);
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using BeetleX.Buffers;
@@ -19,13 +20,15 @@ namespace BeetleX
 
         private Buffers.PipeStream mBaseNetStream;
 
-        private SslStream mSslStream;
+        private SslStreamX mSslStream;
 
         private System.Collections.Concurrent.ConcurrentQueue<object> mSendMessages = new System.Collections.Concurrent.ConcurrentQueue<object>();
 
         private EventArgs.SessionReceiveEventArgs mReceiveArgs = new EventArgs.SessionReceiveEventArgs();
 
-        private int mSendStatus = 0;
+        private bool mSendStatus = false;
+
+        private object mLockSendStatus = new object();
 
         public TcpSession()
         {
@@ -36,9 +39,9 @@ namespace BeetleX
         public void Initialization(IServer server, Action<ISession> setting)
         {
             Server = server;
-            mBaseNetStream = new Buffers.PipeStream(this.SendBufferPool, server.Config.LittleEndian, server.Config.Encoding);
-            mBaseNetStream.Encoding = Server.Config.Encoding;
-            mBaseNetStream.LittleEndian = server.Config.LittleEndian;
+            mBaseNetStream = new Buffers.PipeStream(this.SendBufferPool, server.Options.LittleEndian, server.Options.Encoding);
+            mBaseNetStream.Encoding = Server.Options.Encoding;
+            mBaseNetStream.LittleEndian = server.Options.LittleEndian;
             mBaseNetStream.FlashCompleted = OnWriterFlash;
             mBaseNetStream.Socket = this.Socket;
             Authentication = AuthenticationType.None;
@@ -55,6 +58,11 @@ namespace BeetleX
         public Buffers.SocketAsyncEventArgsX ReceiveEventArgs { get; set; }
 
         private Dictionary<string, object> mProperties = new Dictionary<string, object>();
+
+
+        public string Host { get; set; }
+
+        public int Port { get; set; }
 
         public object this[string key]
         {
@@ -89,9 +97,9 @@ namespace BeetleX
             internal set;
         }
 
-        public Buffers.BufferPool ReceiveBufferPool { get; set; }
+        public Buffers.IBufferPool ReceiveBufferPool { get; set; }
 
-        public Buffers.BufferPool SendBufferPool { get; set; }
+        public Buffers.IBufferPool SendBufferPool { get; set; }
 
         public Socket Socket
         {
@@ -178,6 +186,12 @@ namespace BeetleX
             }
         }
 
+        public void SyncSSLData()
+        {
+            mBaseNetStream.SSLConfirmed = true;
+            mSslStream.SyncData();
+        }
+
         public void Receive(IBuffer buffer)
         {
             if (!mIsDisposed)
@@ -197,11 +211,11 @@ namespace BeetleX
             set;
         }
 
-        internal Dispatchs.SingleThreadDispatcher<ISession> SendDispatcher
-        {
-            get;
-            set;
-        }
+        //internal Dispatchs.SingleThreadDispatcher<ISession> SendDispatcher
+        //{
+        //    get;
+        //    set;
+        //}
 
         public double TimeOut
         {
@@ -225,6 +239,19 @@ namespace BeetleX
         {
             if (!mIsDisposed)
             {
+                if (SSL)
+                {
+                    if (mSslStream.SyncDataError != null)
+                    {
+                        if (Server.EnableLog(EventArgs.LogType.Error))
+                        {
+                            Server.Log(EventArgs.LogType.Error, null,
+                                $"{RemoteEndPoint} sync SslStream date error {mSslStream.SyncDataError.Message}@{mSslStream.SyncDataError.StackTrace}");
+                        }
+                        this.Dispose();
+                        return;
+                    }
+                }
                 mReceiveArgs.Server = this.Server;
                 mReceiveArgs.Session = this;
                 mReceiveArgs.Stream = this.Stream;
@@ -237,60 +264,49 @@ namespace BeetleX
             IBuffer[] items;
             if (IsDisposed)
                 return;
-            if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
+            BufferLink bufferLink = new BufferLink();
+            object data = DequeueSendMessage();
+            PipeStream pipStream = Stream.ToPipeStream();
+            while (data != null)
             {
-                BufferLink bufferLink = new BufferLink();
-                object data = DequeueSendMessage();
-                if (data == null)
+                if (data is IBuffer)
                 {
-                    System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
-                    return;
+                    bufferLink.Import((IBuffer)data);
                 }
-                PipeStream pipStream = Stream.ToPipeStream();
-                while (data != null)
+                else if (data is IBuffer[])
                 {
-                    if (data is IBuffer)
+                    items = (IBuffer[])data;
+                    for (int i = 0; i < items.Length; i++)
                     {
-                        bufferLink.Import((IBuffer)data);
+                        bufferLink.Import(items[i]);
                     }
-                    else if (data is IBuffer[])
-                    {
-                        items = (IBuffer[])data;
-                        for (int i = 0; i < items.Length; i++)
-                        {
-                            bufferLink.Import(items[i]);
-                        }
-                    }
-                    else if (data is IEnumerable<IBuffer>)
-                    {
-                        foreach (IBuffer item in (IEnumerable<IBuffer>)data)
-                        {
-                            bufferLink.Import(item);
-                        }
-                    }
-                    else
-                    {
-
-                        WriterData(data, pipStream);
-
-                    }
-                    data = DequeueSendMessage();
                 }
-                if (SSL && pipStream.CacheLength > 0)
+                else if (data is IEnumerable<IBuffer>)
                 {
-                    pipStream.Flush();
-                }
-                IBuffer streamBuffer = mBaseNetStream.GetWriteCacheBufers();
-                bufferLink.Import(streamBuffer);
-                if (bufferLink.First != null)
-                {
-                    CommitBuffer(bufferLink.First);
+                    foreach (IBuffer item in (IEnumerable<IBuffer>)data)
+                    {
+                        bufferLink.Import(item);
+                    }
                 }
                 else
                 {
-                    System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
+
+                    WriterData(data, pipStream);
+
                 }
+                data = DequeueSendMessage();
             }
+            if (SSL && pipStream.CacheLength > 0)
+            {
+                pipStream.Flush();
+            }
+            IBuffer streamBuffer = mBaseNetStream.GetWriteCacheBufers();
+            bufferLink.Import(streamBuffer);
+            if (bufferLink.First != null)
+            {
+                CommitBuffer(bufferLink.First);
+            }
+
         }
 
         internal void CommitBuffer(IBuffer buffer)
@@ -309,8 +325,37 @@ namespace BeetleX
 
         internal void SendCompleted()
         {
-            System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
+            lock (mLockSendStatus)
+            {
+                if (mSendMessages.IsEmpty)
+                {
+                    mSendStatus = false;
+                    return;
+                }
+            }
             ProcessSendMessages();
+        }
+
+
+        public bool Send(object data)
+        {
+            if (IsDisposed || (int)this.Authentication < 2)
+            {
+                return false;
+            }
+            EnqueueSendMessage(data);
+            bool send = false;
+            lock (mLockSendStatus)
+            {
+                if (!mSendStatus)
+                {
+                    mSendStatus = true;
+                    send = true;
+                }
+            }
+            if (send)
+                ProcessSendMessages();
+            return true;
         }
 
         private void WriterData(object data, System.IO.Stream stream)
@@ -329,24 +374,6 @@ namespace BeetleX
             {
                 Packet.Encode(data, this, stream);
             }
-        }
-
-        public bool Send(object data)
-        {
-            if (IsDisposed || (int)this.Authentication < 2)
-            {
-                return false;
-            }
-            EnqueueSendMessage(data);
-            if (Server.Config.SendQueueEnabled)
-            {
-                SendDispatcher.Enqueue(this);
-            }
-            else
-            {
-                ProcessSendMessages();
-            }
-            return true;
         }
 
         private void OnWriterFlash(Buffers.IBuffer data)
@@ -385,24 +412,27 @@ namespace BeetleX
 
         public bool SSL { get; internal set; }
 
-        public void CreateSSL(AsyncCallback asyncCallback)
+        public void CreateSSL(AsyncCallback asyncCallback, ListenHandler listen, IServer server)
         {
             try
             {
-                mSslStream = new SslStreamX(this.SendBufferPool, Server.Config.Encoding,
-                    Server.Config.LittleEndian, mBaseNetStream, false);
+                if (server.EnableLog(EventArgs.LogType.Info))
+                    server.Log(EventArgs.LogType.Info, null, $"{RemoteEndPoint} create ssl stream");
+                mBaseNetStream.SSL = true;
+                mSslStream = new SslStreamX(this.SendBufferPool, server.Options.Encoding,
+                    server.Options.LittleEndian, mBaseNetStream, false);
 #if(NETSTANDARD2_0)
                 mSslStream.BeginAuthenticateAsServer(Server.Certificate, new AsyncCallback(asyncCallback),
                     new Tuple<TcpSession, SslStream>(this, this.mSslStream));
 #else
-                mSslStream.BeginAuthenticateAsServer(Server.Certificate, false, true, new AsyncCallback(asyncCallback),
+                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
 #endif
             }
             catch (Exception e_)
             {
-                if (Server.EnableLog(EventArgs.LogType.Error))
-                    Server.Error(e_, this, "{1} create session ssl error {0}", e_.Message, this.RemoteEndPoint);
+                if (server.EnableLog(EventArgs.LogType.Error))
+                    server.Error(e_, this, "{1} create session ssl error {0}", e_.Message, this.RemoteEndPoint);
                 this.Dispose();
             }
         }
