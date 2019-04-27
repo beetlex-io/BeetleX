@@ -8,7 +8,8 @@ high performance dotnet core socket tcp communication components support ssl
 - high-performance async/non-blocking  redis client components for dotnet core    
   [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
 
-
+## Nuget
+https://www.nuget.org/packages/BeetleX/
 ### Performance testing
 Server:E3-1230V2
 Bandwidth：10Gb
