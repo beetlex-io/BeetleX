@@ -13,11 +13,13 @@ high performance dotnet core socket tcp communication components support ssl
 Server:E3-1230V2
 Bandwidth：10Gb
 #### 1K connections
-![](https://i.imgur.com/bNT7kI8.png)
+![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_1kc.png?raw=true)
 #### 5K connections
-![](https://i.imgur.com/l3gDs4k.png)
+![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_5kc.png?raw=true)
 #### 10K connections
-![](https://i.imgur.com/dX1U3ti.png)
+![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_10kc.png?raw=true)
+### 50k connections
+![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_50kc.png?raw=true)
 ### Create server
 ```csharp
      class Program : ServerHandlerBase
