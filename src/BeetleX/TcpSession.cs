@@ -26,7 +26,7 @@ namespace BeetleX
 
         private EventArgs.SessionReceiveEventArgs mReceiveArgs = new EventArgs.SessionReceiveEventArgs();
 
-        private bool mSendStatus = false;
+        private int mSendStatus = 0;
 
         private object mLockSendStatus = new object();
 
@@ -261,52 +261,59 @@ namespace BeetleX
 
         internal void ProcessSendMessages()
         {
+
             IBuffer[] items;
             if (IsDisposed)
                 return;
-            BufferLink bufferLink = new BufferLink();
-            object data = DequeueSendMessage();
-            PipeStream pipStream = Stream.ToPipeStream();
-            while (data != null)
+            if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
-                if (data is IBuffer)
+                BufferLink bufferLink = new BufferLink();
+                object data = DequeueSendMessage();
+                PipeStream pipStream = Stream.ToPipeStream();
+                while (data != null)
                 {
-                    bufferLink.Import((IBuffer)data);
-                }
-                else if (data is IBuffer[])
-                {
-                    items = (IBuffer[])data;
-                    for (int i = 0; i < items.Length; i++)
+                    if (data is IBuffer)
                     {
-                        bufferLink.Import(items[i]);
+                        bufferLink.Import((IBuffer)data);
                     }
-                }
-                else if (data is IEnumerable<IBuffer>)
-                {
-                    foreach (IBuffer item in (IEnumerable<IBuffer>)data)
+                    else if (data is IBuffer[])
                     {
-                        bufferLink.Import(item);
+                        items = (IBuffer[])data;
+                        for (int i = 0; i < items.Length; i++)
+                        {
+                            bufferLink.Import(items[i]);
+                        }
                     }
+                    else if (data is IEnumerable<IBuffer>)
+                    {
+                        foreach (IBuffer item in (IEnumerable<IBuffer>)data)
+                        {
+                            bufferLink.Import(item);
+                        }
+                    }
+                    else
+                    {
+                        WriterData(data, pipStream);
+                    }
+                    data = DequeueSendMessage();
+                }
+                if (SSL && pipStream.CacheLength > 0)
+                {
+                    pipStream.Flush();
+                }
+                IBuffer streamBuffer = mBaseNetStream.GetWriteCacheBufers();
+                bufferLink.Import(streamBuffer);
+                if (bufferLink.First != null)
+                {
+                    CommitBuffer(bufferLink.First);
                 }
                 else
                 {
-
-                    WriterData(data, pipStream);
-
+                    System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
+                    if (!mSendMessages.IsEmpty)
+                        ProcessSendMessages();
                 }
-                data = DequeueSendMessage();
             }
-            if (SSL && pipStream.CacheLength > 0)
-            {
-                pipStream.Flush();
-            }
-            IBuffer streamBuffer = mBaseNetStream.GetWriteCacheBufers();
-            bufferLink.Import(streamBuffer);
-            if (bufferLink.First != null)
-            {
-                CommitBuffer(bufferLink.First);
-            }
-
         }
 
         internal void CommitBuffer(IBuffer buffer)
@@ -325,14 +332,7 @@ namespace BeetleX
 
         internal void SendCompleted()
         {
-            lock (mLockSendStatus)
-            {
-                if (mSendMessages.IsEmpty)
-                {
-                    mSendStatus = false;
-                    return;
-                }
-            }
+            System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
             ProcessSendMessages();
         }
 
@@ -343,18 +343,15 @@ namespace BeetleX
             {
                 return false;
             }
-            EnqueueSendMessage(data);
-            bool send = false;
-            lock (mLockSendStatus)
+            if (MaxWaitMessages > 0 && Count > MaxWaitMessages)
             {
-                if (!mSendStatus)
-                {
-                    mSendStatus = true;
-                    send = true;
-                }
+                if (Server.EnableLog(EventArgs.LogType.Error))
+                    Server.Log(EventArgs.LogType.Error, this, $"{RemoteEndPoint} session send queue overflow!");
+                Dispose();
+                return false;
             }
-            if (send)
-                ProcessSendMessages();
+            EnqueueSendMessage(data);
+            ProcessSendMessages();
             return true;
         }
 
@@ -412,6 +409,8 @@ namespace BeetleX
 
         public bool SSL { get; internal set; }
 
+        public int MaxWaitMessages { get; set; }
+
         public void CreateSSL(AsyncCallback asyncCallback, ListenHandler listen, IServer server)
         {
             try
@@ -431,7 +430,7 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                if (server.EnableLog(EventArgs.LogType.Error))
+                if (server.EnableLog(EventArgs.LogType.Warring))
                     server.Error(e_, this, "{1} create session ssl error {0}", e_.Message, this.RemoteEndPoint);
                 this.Dispose();
             }

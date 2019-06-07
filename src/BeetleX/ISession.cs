@@ -24,6 +24,8 @@ namespace BeetleX
 
         int Port { get; set; }
 
+        int MaxWaitMessages { get; set; }
+
         Buffers.IBufferPool ReceiveBufferPool { get; set; }
 
         Buffers.IBufferPool SendBufferPool { get; set; }

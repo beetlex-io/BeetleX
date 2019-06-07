@@ -9,25 +9,27 @@ namespace BeetleX
 {
     public class SocketFactory
     {
-        public static IServer CreateTcpServer(IServerHandler handler, IPacket packet)
+        public static IServer CreateTcpServer(IServerHandler handler, IPacket packet, ServerOptions options = null)
         {
-            TcpServer server = new TcpServer();
+            TcpServer server = new TcpServer(options);
             server.Handler = handler;
             server.Packet = packet;
             return server;
         }
 
-        public static IServer CreateTcpServer<HANDLER, IPACKET>()
+        public static IServer CreateTcpServer<HANDLER, IPACKET>(ServerOptions options = null)
             where HANDLER : IServerHandler, new()
             where IPACKET : IPacket, new()
         {
-            return CreateTcpServer(new HANDLER(), new IPACKET());
+            return CreateTcpServer(new HANDLER(), new IPACKET(), options);
         }
 
-        public static IServer CreateTcpServer<HANDLER>() where HANDLER : IServerHandler, new()
+        public static IServer CreateTcpServer<HANDLER>(ServerOptions options = null) where HANDLER : IServerHandler, new()
         {
-            return CreateTcpServer(new HANDLER(), null);
+            return CreateTcpServer(new HANDLER(), null, options);
         }
+
+
 
         public static CLIENT CreateClient<CLIENT>(string host, int port)
            where CLIENT : IClient, new()

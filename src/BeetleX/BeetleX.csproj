@@ -5,9 +5,9 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.2.6.5</AssemblyVersion>
-    <FileVersion>1.2.6.5</FileVersion>
-    <Version>1.2.6.5</Version>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <FileVersion>1.3.0.0</FileVersion>
+    <Version>1.3.0</Version>
     <Description>dotnet core high performance socket tcp communication components support SSL</Description>
     <Copyright>Copyright © ikende.com 2019 email:henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>

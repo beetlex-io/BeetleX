@@ -9,8 +9,11 @@ namespace BeetleX
     {
         public ServerOptions()
         {
+            //SendQueues = 2;
+            //SendQueueEnabled = false;
+            MaxConnections = 10000;
             MaxAcceptQueue = 0;
-            BufferSize = 1024 * 4;
+            BufferSize = 1024 * 8;
             BufferPoolSize = 10;
             LittleEndian = true;
             Encoding = System.Text.Encoding.UTF8;
@@ -19,12 +22,23 @@ namespace BeetleX
             Statistical = true;
             LogLevel = EventArgs.LogType.Warring;
             IOQueueEnabled = false;
-            UseIPv6 = false;
+            UseIPv6 = true;
             SessionTimeOut = 0;
             BufferPoolMaxMemory = 100;
             Listens = new List<ListenHandler>();
             Listens.Add(new ListenHandler() { Port = 9090 });
+            int threads = (Environment.ProcessorCount / 2);
+            if (threads == 0)
+                threads = 1;
+            IOQueues = Math.Min(threads, 16);
+
         }
+
+        public int MaxWaitMessages { get; set; } = 0;
+
+        public int IOQueues { get; set; }
+
+        public bool SyncAccept { get; set; } = true;
 
         public int SessionTimeOut { get; set; }
 
@@ -94,11 +108,15 @@ namespace BeetleX
 
         public bool IOQueueEnabled { get; set; }
 
+        //public bool SendQueueEnabled { get; set; }
+
+        //public int SendQueues { get; set; }
 
         public int BufferSize { get; set; }
 
 
-        public int MaxConnections { get; set; } = 1000;
+
+        public int MaxConnections { get; set; }
 
         public int MaxAcceptQueue { get; set; }
 

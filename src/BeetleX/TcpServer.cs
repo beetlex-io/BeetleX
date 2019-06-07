@@ -22,11 +22,19 @@ namespace BeetleX
             Name = "TCP-SERVER-" + Guid.NewGuid().ToString("N");
         }
 
+        public TcpServer(ServerOptions options)
+        {
+            if (options == null)
+                options = new ServerOptions();
+            Options = options;
+            Name = "TCP-SERVER-" + Guid.NewGuid().ToString("N");
+        }
+
         private int mCount;
 
         private Dispatchs.DispatchCenter<SocketAsyncEventArgsX> mReceiveDispatchCenter = null;
 
-       // private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
+        // private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
 
         private long mVersion = 0;
 
@@ -176,24 +184,17 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-                int threads = (Environment.ProcessorCount / 2);
-                if (threads == 0)
-                    threads = 1;
-                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs, Math.Min(threads, 16));
+                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs,Options.IOQueues);
                 int maxBufferSize;
                 if (Options.BufferPoolMaxMemory == 0)
                 {
                     Options.BufferPoolMaxMemory = 500;
                 }
-                maxBufferSize = Options.BufferPoolMaxMemory * 1024 * 1024 / Options.BufferSize / Math.Min(Environment.ProcessorCount, 16) / 2;
+                maxBufferSize = (int)(((long)Options.BufferPoolMaxMemory * 1024 * 1024) / Options.BufferSize / 4);
                 if (maxBufferSize < Options.BufferPoolSize)
                     maxBufferSize = Options.BufferPoolSize;
-                mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
-                mSendBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Math.Min(Environment.ProcessorCount, 16));
-                //if (Options.SendQueueEnabled)
-                //{
-                //    mSendDispatchCenter = new Dispatchs.DispatchCenter<ISession>(SessionSendData, Options.SendQueues);
-                //}
+                mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, 4);
+                mSendBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, 4);
                 mSessions = new ConcurrentDictionary<long, ISession>();
                 mInitialized = true;
                 mAcceptDispatcher = new Dispatchs.DispatchCenter<AcceptSocketInfo>(AcceptProcess, Math.Min(Environment.ProcessorCount, 16));
@@ -246,8 +247,8 @@ namespace BeetleX
 
         private void OnListenAcceptCallBack(AcceptSocketInfo e)
         {
-            mAcceptDispatcher.Enqueue(e);
-            //Task.Run(() => AcceptProcess(e));
+            //mAcceptDispatcher.Enqueue(e);
+            Task.Run(() => AcceptProcess(e));
         }
 
         public bool Open()
@@ -259,6 +260,7 @@ namespace BeetleX
                 Status = ServerStatus.Start;
                 foreach (ListenHandler item in this.Options.Listens)
                 {
+                    item.SyncAccept = Options.SyncAccept;
                     item.Run(this, OnListenAcceptCallBack);
                 }
                 if (!GCSettings.IsServerGC)
@@ -266,7 +268,10 @@ namespace BeetleX
                     if (EnableLog(LogType.Warring))
                         Log(LogType.Warring, null, "no serverGC mode,please enable serverGC mode!");
                 }
-                Log(LogType.Info, null, $"BeetleX server info:[serverGC:{GCSettings.IsServerGC}] [IOQueue:{Options.IOQueueEnabled}] [V:{typeof(TcpServer).Assembly.GetName().Version}]");
+                Log(LogType.Info, null,
+                   $"BeetleX [V:{typeof(TcpServer).Assembly.GetName().Version}]");
+                Log(LogType.Info, null,
+                    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}]");
                 return true;
             }
             catch (Exception e_)
@@ -316,7 +321,7 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                if (this.EnableLog(LogType.Error))
+                if (this.EnableLog(LogType.Warring))
                     this.Error(e_, state?.Item1, "create session ssl authenticate callback error {0}", e_.Message);
                 if (session != null)
                     session.Dispose();
@@ -326,6 +331,7 @@ namespace BeetleX
         private void ConnectedProcess(AcceptSocketInfo e)
         {
             TcpSession session = new TcpSession();
+            session.MaxWaitMessages = Options.MaxWaitMessages;
             session.Socket = e.Socket;
             session.Server = this;
             session.Host = e.Listen.Host;
@@ -432,7 +438,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 buffer.Free();
-                if (EnableLog(LogType.Error))
+                if (EnableLog(LogType.Warring))
                     Error(e_, session, "session receive data error!");
             }
         }
@@ -475,7 +481,7 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                if (EnableLog(LogType.Error))
+                if (EnableLog(LogType.Warring))
                     Error(e_, ex.Session, "receive data completed SocketError {0}!", e.SocketError);
             }
             finally
@@ -512,7 +518,7 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                if (EnableLog(LogType.Error))
+                if (EnableLog(LogType.Warring))
                     Error(e_, ex.Session, "receive data completed SocketError {0}!", e.SocketError);
             }
 
@@ -580,7 +586,7 @@ namespace BeetleX
             }
             catch (Exception e_)
             {
-                if (EnableLog(LogType.Error))
+                if (EnableLog(LogType.Warring))
                     Error(e_, ex.Session, "send data completed SocketError {0}!", e.SocketError);
             }
 
