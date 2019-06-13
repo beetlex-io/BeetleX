@@ -23,6 +23,8 @@ Bandwidth：10Gb
 ![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_10kc.png?raw=true)
 ### 50k connections
 ![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_50kc.png?raw=true)
+### 1m connections
+![](https://github.com/IKende/BeetleX/blob/master/images/1mconnections.png?raw=true)
 ### Create server
 ```csharp
      class Program : ServerHandlerBase
