@@ -5,10 +5,12 @@ high performance dotnet core socket tcp communication components support ssl
     [https://github.com/IKende/FastHttpApi](https://github.com/IKende/FastHttpApi)
 - High performance webapi gateway components  
   [https://github.com/IKende/Bumblebee](https://github.com/IKende/Bumblebee)
-- high-performance async/non-blocking  redis client components for dotnet core    
+- High-performance async/non-blocking  redis client components for dotnet core    
   [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
-- dotnet high performance remote interface invoke(RPC) communication components,implemente millions RPS remote interface method calls.
+- High performance remote interface invoke(RPC) communication components,implemente millions RPS remote interface method calls           
   [https://github.com/IKende/XRPC](https://github.com/IKende/XRPC)
+- Http and websocket clients                     
+  [https://github.com/IKende/HttpClients](https://github.com/IKende/HttpClients)
 
 ## Nuget
 https://www.nuget.org/packages/BeetleX/
