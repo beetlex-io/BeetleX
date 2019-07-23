@@ -179,7 +179,7 @@ namespace BeetleX.Packets
             return result;
         }
 
-        protected override object OnReader(ISession session, PipeStream stream)
+        protected override object OnReader(ISession session, PipeStream stream, int packageSize)
         {
             Type type = TypeHeader.ReadType(stream);
             if (type.IsGenericType)
@@ -300,7 +300,7 @@ namespace BeetleX.Packets
             }
             else
             {
-                throw new BXException("{0}  not implement IMessage !",data.GetType());
+                throw new BXException("{0}  not implement IMessage !", data.GetType());
             }
         }
     }

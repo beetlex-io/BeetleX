@@ -25,7 +25,7 @@ namespace ServerX
         }
         public Type ReadTypeByUrl(string url)
         {
-
+            throw new NotImplementedException();
         }
     }
 }

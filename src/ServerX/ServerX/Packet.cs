@@ -23,6 +23,9 @@ namespace ServerX
     }
     public class RequestMessage
     {
+        public readonly static RequestMessage HeartBeat = Create("HeartBeat");
+        public readonly static RequestMessage PubKey = Create("PubKey");
+        public readonly static RequestMessage SecretKey = Create("SecretKey");
         public static RequestMessage Create(string url)
         {
             return new RequestMessage(url, null);
@@ -30,6 +33,14 @@ namespace ServerX
         public static RequestMessage Create(string url, object token)
         {
             return new RequestMessage(url, token);
+        }
+        public RequestMessage Clone(object token)
+        {
+            return new RequestMessage(this.Url, token);
+        }
+        public bool IsSecretRequest()
+        {
+            return Url == "SecretKey";
         }
         public RequestMessage(string url, object token)
         {
@@ -42,9 +53,6 @@ namespace ServerX
     public class Packet : FixedHeaderPacket
     {
         readonly static TypeHandler typeHandler;
-        public readonly static RequestMessage HeartBeat = RequestMessage.Create("HeartBeat");
-        public readonly static RequestMessage PubKey = RequestMessage.Create("PubKey");
-        public readonly static RequestMessage SecretKey = RequestMessage.Create("SecretKey");
         static Packet()
         {
             typeHandler = new TypeHandler();
@@ -61,9 +69,14 @@ namespace ServerX
         {
             var size = reader.ReadByte();
             var url = reader.ReadString(size);
-            if (string.Compare(url, "beat", true) == 0) return HeartBeat;
-            else if (string.Compare(url, "pubkey", true) == 0) return PubKey;
-            else if (string.Compare(url, "key", true) == 0) return SecretKey;
+            if (string.Compare(url, "beat", true) == 0) return RequestMessage.HeartBeat;
+            else if (string.Compare(url, "pubkey", true) == 0) return RequestMessage.PubKey;
+            else if (string.Compare(url, "key", true) == 0)
+            {
+                var datasize = packetSize - size - 1;
+                var encryptRaw = reader.ReadString(datasize);
+                return RequestMessage.SecretKey.Clone(encryptRaw);
+            }
             else
             {
                 var type = TypeHandler.ReadTypeByUrl(url);
