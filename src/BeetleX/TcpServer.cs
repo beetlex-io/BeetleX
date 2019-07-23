@@ -184,7 +184,7 @@ namespace BeetleX
         {
             if (!mInitialized)
             {
-                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs,Options.IOQueues);
+                mReceiveDispatchCenter = new Dispatchs.DispatchCenter<SocketAsyncEventArgsX>(ProcessReceiveArgs, Options.IOQueues);
                 int maxBufferSize;
                 if (Options.BufferPoolMaxMemory == 0)
                 {
@@ -207,8 +207,7 @@ namespace BeetleX
 
                     if (mDetectionTimer != null)
                         mDetectionTimer.Dispose();
-                    mDetectionTimer = new System.Threading.Timer(OnDetectionHandler, null,
-                        mTimeOutCheckTime, mTimeOutCheckTime);
+                    mDetectionTimer = new System.Threading.Timer(OnDetectionHandler, null, mTimeOutCheckTime, mTimeOutCheckTime);
                     Log(LogType.Info, null, "detection sessions timeout with {0}s", Options.SessionTimeOut);
                 }
             }

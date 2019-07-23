@@ -69,3 +69,4 @@ samples/Http.Server/bin/
 samples/Http.Server/obj/
 /src/ServerX.Client/ServerX.Client/obj
 /src/ServerX/ServerX/obj
+/src/ServerX/ServerX/bin/Debug/netcoreapp2.2
