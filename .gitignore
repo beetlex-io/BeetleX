@@ -67,3 +67,5 @@ samples/Protobuf.Server/obj/
 samples/Http.Server/Properties/
 samples/Http.Server/bin/
 samples/Http.Server/obj/
+/src/ServerX.Client/ServerX.Client/obj
+/src/ServerX/ServerX/obj

@@ -238,11 +238,13 @@ namespace BeetleX.Clients
                 mSslStream.Dispose();
                 mSslStream = null;
             }
-            mBaseNetworkStream = new Buffers.PipeStream(BufferPool, this.LittleEndian, this.Encoding);
-            mBaseNetworkStream.Socket = mSocket;
-            mBaseNetworkStream.Encoding = this.Encoding;
-            mBaseNetworkStream.LittleEndian = this.LittleEndian;
-            mBaseNetworkStream.FlashCompleted = OnWriterFlash;
+            mBaseNetworkStream = new PipeStream(BufferPool, this.LittleEndian, this.Encoding)
+            {
+                Socket = mSocket,
+                Encoding = this.Encoding,
+                LittleEndian = this.LittleEndian,
+                FlashCompleted = OnWriterFlash
+            };
             if (this.Packet != null)
             {
                 this.Packet = this.Packet.Clone();
