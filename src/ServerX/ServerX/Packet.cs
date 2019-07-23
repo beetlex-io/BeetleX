@@ -1,6 +1,7 @@
 ﻿using BeetleX;
 using BeetleX.Buffers;
 using BeetleX.Packets;
+using ServerX.Route;
 using System;
 
 namespace ServerX
@@ -23,9 +24,6 @@ namespace ServerX
     }
     public class RequestMessage
     {
-        public readonly static RequestMessage HeartBeat = Create("HeartBeat");
-        public readonly static RequestMessage PubKey = Create("PubKey");
-        public readonly static RequestMessage SecretKey = Create("SecretKey");
         public static RequestMessage Create(string url)
         {
             return new RequestMessage(url, null);
@@ -36,18 +34,25 @@ namespace ServerX
         }
         public RequestMessage Clone(object token)
         {
-            return new RequestMessage(this.Url, token);
+            return new RequestMessage(RouteInfo, token);
         }
-        public bool IsSecretRequest()
+        RequestMessage(RouteAction action, object token)
         {
-            return Url == "SecretKey";
-        }
-        public RequestMessage(string url, object token)
-        {
-            Url = url;
+            RouteInfo = action;
             Token = token;
         }
-        public string Url { get; }
+        RequestMessage(string url, object token)
+        {
+            RouteInfo = GetRouteInfo(url);
+            Token = token;
+        }
+
+        private RouteAction GetRouteInfo(string url)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RouteAction RouteInfo { get; }
         public object Token { get; }
     }
     public class Packet : FixedHeaderPacket
@@ -69,20 +74,9 @@ namespace ServerX
         {
             var size = reader.ReadByte();
             var url = reader.ReadString(size);
-            if (string.Compare(url, "beat", true) == 0) return RequestMessage.HeartBeat;
-            else if (string.Compare(url, "pubkey", true) == 0) return RequestMessage.PubKey;
-            else if (string.Compare(url, "key", true) == 0)
-            {
-                var datasize = packetSize - size - 1;
-                var encryptRaw = reader.ReadString(datasize);
-                return RequestMessage.SecretKey.Clone(encryptRaw);
-            }
-            else
-            {
-                var type = TypeHandler.ReadTypeByUrl(url);
-                var typesize = packetSize - size - 1;
-                return RequestMessage.Create(url, reader.Stream.Deserialize(typesize, type));
-            }
+            var type = TypeHandler.ReadTypeByUrl(url);
+            var typesize = packetSize - size - 1;
+            return RequestMessage.Create(url, reader.Stream.Deserialize(typesize, type));
         }
 
         protected override void OnWrite(ISession session, object data, PipeStream stream)
