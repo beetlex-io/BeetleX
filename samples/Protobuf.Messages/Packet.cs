@@ -146,7 +146,7 @@ namespace Protobuf.Messages
             return result;
         }
 
-        protected override object OnReader(ISession session, PipeStream reader)
+        protected override object OnReader(ISession session, PipeStream reader, int packsize)
         {
             Type type = TypeHeader.ReadType(reader);
             int bodySize = reader.ReadInt32();

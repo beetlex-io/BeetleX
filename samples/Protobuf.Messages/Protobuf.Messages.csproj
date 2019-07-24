@@ -5,8 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BeetleX" Version="1.2.6.5" />
     <PackageReference Include="protobuf-net" Version="2.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BeetleX\BeetleX.csproj" />
   </ItemGroup>
 
 </Project>

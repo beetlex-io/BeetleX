@@ -22,36 +22,13 @@ namespace ServerX
             return (T)Deserialize(stream, length, typeof(T));
         }
     }
-    public class RequestMessage
+    internal class RequestMessage
     {
-        public static RequestMessage Create(string url)
-        {
-            return new RequestMessage(url, null);
-        }
-        public static RequestMessage Create(string url, object token)
-        {
-            return new RequestMessage(url, token);
-        }
-        public RequestMessage Clone(object token)
-        {
-            return new RequestMessage(RouteInfo, token);
-        }
-        RequestMessage(RouteAction action, object token)
+        public RequestMessage(RouteAction action, object args)
         {
             RouteInfo = action;
-            Token = token;
+            Token = args;
         }
-        RequestMessage(string url, object token)
-        {
-            RouteInfo = GetRouteInfo(url);
-            Token = token;
-        }
-
-        private RouteAction GetRouteInfo(string url)
-        {
-            throw new NotImplementedException();
-        }
-
         public RouteAction RouteInfo { get; }
         public object Token { get; }
     }
@@ -74,14 +51,31 @@ namespace ServerX
         {
             var size = reader.ReadByte();
             var url = reader.ReadString(size);
-            var type = TypeHandler.ReadTypeByUrl(url);
+            var routeInfo = TypeHandler.GetRouteInfo(url);
             var typesize = packetSize - size - 1;
-            return RequestMessage.Create(url, reader.Stream.Deserialize(typesize, type));
+            if (typesize == 0) return new RequestMessage(routeInfo, null);
+            else
+            {
+                var obj = reader.Stream.Deserialize(typesize, routeInfo.InArgumentType);
+                return new RequestMessage(routeInfo, obj);
+            }
         }
 
-        protected override void OnWrite(ISession session, object data, PipeStream stream)
+        protected override void OnWrite(ISession session, object send, PipeStream stream)
         {
-            throw new NotImplementedException();
+            var sendinfo = (ResponseData)send;
+            var statuscode = sendinfo.StatusCode;
+            stream.WriteByte(statuscode);
+            var typename = sendinfo.TypeName;
+            var data = sendinfo.Data;
+            if (string.IsNullOrEmpty(typename)) typeHandler.WriteType(data, stream);
+            else
+            {
+                var l = (byte)typename.Length;
+                stream.WriteByte(l);
+                stream.Write(typename);
+            }
+            if (data != null) data.Serialize(stream);
         }
     }
 }

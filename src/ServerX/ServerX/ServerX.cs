@@ -1,24 +1,30 @@
-﻿using BeetleX;
+﻿using Autofac;
+using BeetleX;
 using BeetleX.EventArgs;
 using ServerX.Route;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ServerX
 {
     public class ServerX : ServerHandlerBase
     {
-        public ServerX()
+        ILifetimeScope _autofac;
+        IServer server;
+        public void Init(ILifetimeScope scope, ServerOptions options = null)
         {
-
+            _autofac = scope;
+            server = SocketFactory.CreateTcpServer<ServerX, Packet>(options);
+            server.Open();
+        }
+        public override void Connected(IServer server, ConnectedEventArgs e)
+        {
+            e.Session.Tag = new Request(server, e.Session, _autofac);
+            base.Connected(server, e);
         }
         protected override void OnReceiveMessage(IServer server, ISession session, object message)
         {
-            var request = (RequestMessage)message;
-            var context = new Context(server, session, request);
-            context.Process();
+            var info = (RequestMessage)message;
+            var request = (Request)session.Tag;
+            request.Process(info);
         }
     }
-}
 }
