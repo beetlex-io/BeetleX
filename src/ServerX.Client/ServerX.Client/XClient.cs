@@ -2,6 +2,7 @@
 using BeetleX.Clients;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ServerX.Client
 {
@@ -19,7 +20,14 @@ namespace ServerX.Client
             manager.Subscrption<HeartBeat, HeartBeatHandler>();
             manager.RegisterServerEventNameToLocalEventName(FixPackageDeal);
             PacketReceive = Receive;
+            Connected = OnConnected;
         }
+
+        private void OnConnected(IClient c)
+        {
+
+        }
+
         public void Init(string host, int port)
         {
             Init(host, port, new Packet(manager));
