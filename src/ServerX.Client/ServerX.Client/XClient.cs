@@ -23,10 +23,11 @@ namespace ServerX.Client
         public void Init(string host, int port)
         {
             Init(host, port, new Packet(manager));
-            TryConnect(0, 1, 10);
+            TryConnect(1, 10);
         }
-        public void TryConnect(int count, int step, int max)
+        public void TryConnect(int step, int max)
         {
+            int count = 0;
             var step_add_count = max / step;
             while (!SendHeartBeat().IsConnected)
             {
