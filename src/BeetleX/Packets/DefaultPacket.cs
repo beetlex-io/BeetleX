@@ -256,7 +256,7 @@ namespace BeetleX.Packets
             return result;
         }
 
-        protected override object OnRead(IClient client, PipeStream stream)
+        protected override object OnRead(IClient client, PipeStream stream, int packetSize)
         {
             Type type = TypeHeader.ReadType(stream);
             if (type.IsGenericType)

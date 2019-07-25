@@ -1,10 +1,9 @@
-﻿using BeetleX;
-using BeetleX.Buffers;
+﻿using BeetleX.Buffers;
 using BeetleX.Clients;
 using BeetleX.Packets;
 using System;
 
-namespace ServerX
+namespace ServerX.Client
 {
     static class ObjectSerializeExpand
     {
@@ -22,43 +21,43 @@ namespace ServerX
             return (T)Deserialize(stream, length, typeof(T));
         }
     }
-    public class Packet : FixeHeaderClientPacket
+    internal class Packet : FixeHeaderClientPacket
     {
-        readonly static TypeHandler typeHandler;
-        static Packet()
+        private readonly SubscrptionManager submgr;
+        internal Packet(SubscrptionManager manager)
         {
-            typeHandler = new TypeHandler();
+            submgr = manager;
         }
 
-        public TypeHandler TypeHandler { get { return typeHandler; } }
-
-        public override IPacket Clone()
+        public override IClientPacket Clone()
         {
             return this;
         }
 
-        protected override object OnRead(IClient client, PipeStream reader)
+        protected override object OnRead(IClient client, PipeStream reader, int packetSize)
         {
             var statusCode = reader.ReadByte();
             var size = reader.ReadByte();
             var rspkey = reader.ReadString(size);
+            var handlers = submgr.GetHandlers(rspkey, out Type eventType);
+            var typesize = packetSize - size - 1;
+            if (typesize == 0) return new ResponseMessage(handlers, null, eventType);
+            else
+            {
+                var obj = reader.Stream.Deserialize(typesize, eventType);
+                return new ResponseMessage(handlers, obj, eventType);
+            }
         }
 
         protected override void OnWrite(object data, IClient client, PipeStream stream)
         {
-            var sendinfo = (ResponseData)send;
-            var statuscode = sendinfo.StatusCode;
-            stream.WriteByte(statuscode);
-            var typename = sendinfo.TypeName;
-            var data = sendinfo.Data;
-            if (string.IsNullOrEmpty(typename)) typeHandler.WriteType(data, stream);
-            else
-            {
-                var l = (byte)typename.Length;
-                stream.WriteByte(l);
-                stream.Write(typename);
-            }
-            if (data != null) data.Serialize(stream);
+            var msg = (RequestMessage)data;
+            var url = msg.Url;
+            var d = msg.Data;
+            var l = (byte)url.Length;
+            stream.Write(l);
+            stream.Write(url);
+            if (d != null) d.Serialize(stream);
         }
     }
 }

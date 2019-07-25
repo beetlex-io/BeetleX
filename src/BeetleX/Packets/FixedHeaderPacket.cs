@@ -144,7 +144,7 @@ namespace BeetleX.Packets
 
         protected int CurrentSize => mSize;
 
-        protected abstract object OnRead(IClient client, PipeStream stream);
+        protected abstract object OnRead(IClient client, PipeStream stream, int packageSize);
 
         public void Decode(IClient client, Stream stream)
         {
@@ -168,7 +168,7 @@ namespace BeetleX.Packets
             }
             if (pstream.Length < mSize)
                 return;
-            data = OnRead(client, pstream);
+            data = OnRead(client, pstream, mSize);
             mSize = 0;
             Completed?.Invoke(client, data);
             goto START;

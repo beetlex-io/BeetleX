@@ -70,3 +70,5 @@ samples/Http.Server/obj/
 /src/ServerX.Client/ServerX.Client/obj
 /src/ServerX/ServerX/obj
 /src/ServerX/ServerX/bin/Debug/netcoreapp2.2
+/src/ServerX.Client/ServerX.Client/bin/Debug/netcoreapp2.2
+/src/ServerX.Client/ServerX.Client/bin/Debug
