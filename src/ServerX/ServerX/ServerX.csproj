@@ -5,6 +5,7 @@
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <ApplicationIcon />
     <StartupObject />
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
