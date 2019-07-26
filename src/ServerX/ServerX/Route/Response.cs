@@ -1,11 +1,9 @@
 ﻿using BeetleX;
-using System;
 
 namespace ServerX.Route
 {
     public class Response
     {
-        static readonly ResponseData HeartBeat = new ResponseData(null, 20, "beat");
         readonly IServer server;
         readonly ISession session;
         internal Response(IServer server, ISession session)
@@ -13,22 +11,21 @@ namespace ServerX.Route
             this.server = server;
             this.session = session;
         }
-        public void OK(object info) 
+        public void OK(object info)
         {
             Write(info, 20);
         }
-        public void Error(string message,byte statuscode)
+        public void Error(string message, byte statuscode)
         {
-            server.Send(new ResponseData(message, statuscode, "error"));
-        }
-        public void WriteHeartBeat()
-        {
-            server.Log(BeetleX.EventArgs.LogType.Debug, session, "RecHeartBeating");
-            server.Send(HeartBeat, session);
+            server.Send(new ResponseData(message, statuscode, "error"), session);
         }
         internal void Write<T>(T info, byte statuscode) where T : class
         {
-            server.Send(new ResponseData(info, statuscode, null));
+            server.Send(new ResponseData(info, statuscode, null), session);
+        }
+        internal void Write(ResponseData data)
+        {
+            server.Send(data, session);
         }
     }
 }

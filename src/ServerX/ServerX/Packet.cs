@@ -34,13 +34,12 @@ namespace ServerX
     }
     public class Packet : FixedHeaderPacket
     {
-        readonly static TypeHandler typeHandler;
-        static Packet()
+        public Packet(TypeHandler typeHandler)
         {
-            typeHandler = new TypeHandler();
+            TypeHandler = new TypeHandler();
         }
 
-        public TypeHandler TypeHandler { get { return typeHandler; } }
+        public TypeHandler TypeHandler { get; }
 
         public override IPacket Clone()
         {
@@ -68,7 +67,7 @@ namespace ServerX
             stream.WriteByte(statuscode);
             var typename = sendinfo.TypeName;
             var data = sendinfo.Data;
-            if (string.IsNullOrEmpty(typename)) typeHandler.WriteType(data, stream);
+            if (string.IsNullOrEmpty(typename)) TypeHandler.WriteType(data, stream);
             else
             {
                 var l = (byte)typename.Length;

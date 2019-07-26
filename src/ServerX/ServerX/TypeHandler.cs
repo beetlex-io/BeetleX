@@ -42,8 +42,22 @@ namespace ServerX
                 LoadControlers(ass);
             }
         }
-        public void Add(Controller ctl, string url)
+        public void Add(Controller ctl, MethodInfo method, string url, bool set_instance = false)
         {
+            MethodInfo[] methods = ctl.GetType().DeclaringType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            var f = false;
+            foreach (var m in methods)
+            {
+                if (m != method) continue;
+                f = true;
+                RouteAction routeInfo;
+                if (set_instance) routeInfo = new RouteAction(ctl);
+                else routeInfo = new RouteAction() { ControllerType = ctl.GetType().DeclaringType, CurrentMethod = method, RequestUri = url, OutArgumentType = method.ReturnType };
+                if (m.GetParameters().Length != 0) routeInfo.InArgumentType = m.GetParameters()[0].ParameterType;
+                Mapper.Add(url, routeInfo);
+                break;
+            }
+            if (!f) throw new Exception("the controller doesnt contain the method");
         }
         public void WriteType(object data, PipeStream stream)
         {

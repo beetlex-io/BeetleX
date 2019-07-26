@@ -1,9 +1,6 @@
 ﻿using System;
-using System.IO;
-using System.Diagnostics;
 using BeetleX;
 using Autofac;
-using BeetleX.EventArgs;
 
 namespace ServerX.Route
 {
@@ -12,7 +9,6 @@ namespace ServerX.Route
     /// </summary>
     public class Request
     {
-        static object _instanceLock = new object();
         ILifetimeScope _autofac;
         Response _response;
         /// <summary>

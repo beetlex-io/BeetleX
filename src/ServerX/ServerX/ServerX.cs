@@ -9,10 +9,18 @@ namespace ServerX
     {
         ILifetimeScope _autofac;
         IServer server;
+        TypeHandler typehandler;
+        public ServerX()
+        {
+            typehandler = new TypeHandler();
+            var heartbeat = new HeartBeatRequestDeal();
+            var method = heartbeat.GetType().GetMethod("SendHeartResponse");
+            typehandler.Add(heartbeat, method, "beat", true);
+        }
         public void Init(ILifetimeScope scope, ServerOptions options = null)
         {
             _autofac = scope;
-            server = SocketFactory.CreateTcpServer<ServerX, Packet>(options);
+            server = SocketFactory.CreateTcpServer(this, new Packet(typehandler), options);
             server.Open();
         }
         public override void Connected(IServer server, ConnectedEventArgs e)
@@ -25,6 +33,15 @@ namespace ServerX
             var info = (RequestMessage)message;
             var request = (Request)session.Tag;
             request.Process(info);
+        }
+    }
+    class HeartBeatRequestDeal : Controller
+    {
+        static readonly ResponseData HeartBeat = new ResponseData(null, 20, "beat");
+        public void SendHeartResponse()
+        {
+            System.Console.WriteLine("SendHeartResponse");
+            Response.Write(HeartBeat);
         }
     }
 }
