@@ -6,8 +6,9 @@ namespace ServerX.ServerTest
     {
         static void Main(string[] args)
         {
-            
-            Console.WriteLine("Hello World!");
+            var serverX = new ServerX();
+            serverX.Init(null);
+            Console.ReadKey();
         }
     }
 }

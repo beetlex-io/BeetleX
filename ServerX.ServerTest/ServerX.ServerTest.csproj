@@ -5,4 +5,8 @@
     <TargetFramework>netcoreapp2.2</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\src\ServerX\ServerX\ServerX.csproj" />
+  </ItemGroup>
+
 </Project>
