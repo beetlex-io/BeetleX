@@ -9,6 +9,7 @@ namespace ServerX.Route
     /// </summary>
     public class Request
     {
+        readonly Type voidType = typeof(void);
         ILifetimeScope _autofac;
         Response _response;
         /// <summary>
@@ -56,7 +57,7 @@ namespace ServerX.Route
             controller.Request = this;
             controller.Response = _response;
             if (!controller.OnActionExecuting(route)) return;
-            if (route.OutArgumentType != null)
+            if (route.OutArgumentType != voidType)
             {
                 var obj = route.CurrentMethod.Invoke(controller, new object[] { meta.Token });
                 controller.Response.OK(obj);

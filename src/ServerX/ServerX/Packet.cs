@@ -36,7 +36,7 @@ namespace ServerX
     {
         public Packet(TypeHandler typeHandler)
         {
-            TypeHandler = new TypeHandler();
+            TypeHandler = typeHandler;
         }
 
         public TypeHandler TypeHandler { get; }

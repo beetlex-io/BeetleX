@@ -38,10 +38,10 @@ namespace ServerX
     class HeartBeatRequestDeal : Controller
     {
         static readonly ResponseData HeartBeat = new ResponseData(null, 20, "beat");
-        public void SendHeartResponse()
+        public void SendHeartResponse(object data)
         {
             System.Console.WriteLine("SendHeartResponse");
-            Response.Write(HeartBeat);
+            //Response.Write(HeartBeat);
         }
     }
 }

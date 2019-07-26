@@ -44,7 +44,7 @@ namespace ServerX
         }
         public void Add(Controller ctl, MethodInfo method, string url, bool set_instance = false)
         {
-            MethodInfo[] methods = ctl.GetType().DeclaringType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            MethodInfo[] methods = ctl.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
             var f = false;
             foreach (var m in methods)
             {
@@ -52,7 +52,11 @@ namespace ServerX
                 f = true;
                 RouteAction routeInfo;
                 if (set_instance) routeInfo = new RouteAction(ctl);
-                else routeInfo = new RouteAction() { ControllerType = ctl.GetType().DeclaringType, CurrentMethod = method, RequestUri = url, OutArgumentType = method.ReturnType };
+                else routeInfo = new RouteAction();
+                routeInfo.ControllerType = ctl.GetType().DeclaringType;
+                routeInfo.CurrentMethod = method;
+                routeInfo.RequestUri = url;
+                routeInfo.OutArgumentType = method.ReturnType;
                 if (m.GetParameters().Length != 0) routeInfo.InArgumentType = m.GetParameters()[0].ParameterType;
                 Mapper.Add(url, routeInfo);
                 break;
