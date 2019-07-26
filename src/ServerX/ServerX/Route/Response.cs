@@ -23,6 +23,7 @@ namespace ServerX.Route
         }
         public void WriteHeartBeat()
         {
+            server.Log(BeetleX.EventArgs.LogType.Debug, session, "RecHeartBeating");
             server.Send(HeartBeat, session);
         }
         internal void Write<T>(T info, byte statuscode) where T : class

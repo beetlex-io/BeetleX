@@ -14,20 +14,20 @@ namespace ServerX.Client
     }
     internal class SubscrptionManager
     {
-        Dictionary<Type, List<Type>> _handlers;
+        Dictionary<Type, List<SubInfo>> _handlers;
         readonly Dictionary<string, Type> _eventTypes;
         Func<string, string> _getLocalNameHandler;
         public SubscrptionManager()
         {
-            _handlers = new Dictionary<Type, List<Type>>();
+            _handlers = new Dictionary<Type, List<SubInfo>>();
             _eventTypes = new Dictionary<string, Type>();
         }
-        internal IEnumerable<Type> GetHandlers(string eventName, out Type eventType)
+        internal IEnumerable<SubInfo> GetHandlers(string eventName, out Type eventType)
         {
             eventType = GetEventTypeByName(eventName);
-            if (eventType == null) return new List<Type>();
-            var flag = _handlers.TryGetValue(eventType, out List<Type> result);
-            if (!flag) result = new List<Type>();
+            if (eventType == null) return new List<SubInfo>();
+            var flag = _handlers.TryGetValue(eventType, out List<SubInfo> result);
+            if (!flag) result = new List<SubInfo>();
             return result;
         }
         Type GetEventTypeByName(string eventName)
@@ -41,18 +41,18 @@ namespace ServerX.Client
         {
             _getLocalNameHandler = func;
         }
-        internal void Subscrption<T, THandler>() where THandler : IEventHandler<T>
+        internal void Subscrption<T, THandler>(THandler instance = default(THandler)) where THandler : IEventHandler<T>
         {
             var enentType = typeof(T);
             var name = enentType.FullName;
             var f = _eventTypes.TryAdd(name, enentType);
-            if (f) _handlers.Add(enentType, new List<Type>());
+            if (f) _handlers.Add(enentType, new List<SubInfo>());
             var handlerType = typeof(THandler);
-            if (_handlers[enentType].Any(s => s == handlerType))
+            if (_handlers[enentType].Any(s => s.HandlerType == handlerType))
             {
                 throw new ArgumentException($"Handler Type {handlerType.GetType().Name} already registered for '{name}'", nameof(handlerType));
             }
-            _handlers[enentType].Add(handlerType);
+            _handlers[enentType].Add(SubInfo.Create(handlerType, instance));
         }
         private bool HasSubscriptionsForEvent(string eventName)
         {

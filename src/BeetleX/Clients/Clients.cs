@@ -660,7 +660,6 @@ namespace BeetleX.Clients
                 mConnected = false;
                 try
                 {
-                    OnDisconnected();
                     Token = null;
                     if (mSocket != null)
                     {
@@ -711,6 +710,7 @@ namespace BeetleX.Clients
             {
                 mReadMessageAwait.Error(new SocketException((int)SocketError.ConnectionAborted));
             }
+            OnDisconnected();
         }
 
         private static void IO_Completed(object sender, SocketAsyncEventArgs e)

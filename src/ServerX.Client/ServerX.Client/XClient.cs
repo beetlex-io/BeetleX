@@ -9,25 +9,72 @@ namespace ServerX.Client
     public class XClient : AsyncTcpClient
     {
         SubscrptionManager manager;
+        readonly ClientStateMgr state_managr;
         readonly ILifetimeScope lift_scope;
         readonly string heartbeatname = typeof(HeartBeat).FullName;
+
         const string S_XCLIENT = "XCLIENT";
         readonly RequestMessage heartbeat_request = new RequestMessage("beat", null);
         public XClient(ILifetimeScope scope)
         {
-            lift_scope = scope ?? throw new ArgumentNullException(nameof(ILifetimeScope), "need set ILifetimeScope");
+            state_managr = new ClientStateMgr(this, 10, 10);
+            lift_scope = scope /*?? throw new ArgumentNullException(nameof(ILifetimeScope), "need set ILifetimeScope")*/;
             manager = new SubscrptionManager();
-            manager.Subscrption<HeartBeat, HeartBeatHandler>();
+            manager.Subscrption<HeartBeat, HeartBeatHandler>(new HeartBeatHandler(this));
             manager.RegisterServerEventNameToLocalEventName(FixPackageDeal);
             PacketReceive = Receive;
             Connected = OnConnected;
+            Disconnected = OnDisConnected;
+        }
+        class ClientStateMgr
+        {
+            int _state = -1;
+            readonly XClient _client;
+            readonly int _heartbeatPeriod = 0;
+            readonly int _reconnectPeriod = 0;
+            public ClientStateMgr(XClient xClient, int heartbeatPeriod, int reconnectPeriod)
+            {
+                _client = xClient;
+                _heartbeatPeriod = heartbeatPeriod;
+                _reconnectPeriod = reconnectPeriod;
+            }
+            public void Switch(int state)
+            {
+                if (_state == -1)
+                {
+                    _state = state;
+                    Task.Run(() =>
+                    {
+                        for (; ; )
+                        {
+                            while (_state == 1)
+                            {
+                                _client.SendHeartBeat();
+                                Thread.Sleep(_heartbeatPeriod * 1000);
+                            }
+                            while (_state == 2)
+                            {
+                                _client.TryConnect(1, _reconnectPeriod);
+                            }
+                        }
+                    });
+                }
+                else _state = state;
+            }
+        }
+        private void OnDisConnected(IClient c)
+        {
+            state_managr.Switch(2);
         }
 
         private void OnConnected(IClient c)
         {
+            state_managr.Switch(1);
+        }
+        internal void RaiseRecHeartBeat()
+        {
 
         }
-
         public void Init(string host, int port)
         {
             Init(host, port, new Packet(manager));
@@ -52,10 +99,17 @@ namespace ServerX.Client
             var rsp = (ResponseMessage)message;
             foreach (var handler in rsp.Handlers)
             {
-                using (var scope = lift_scope.BeginLifetimeScope(S_XCLIENT))
+                if (handler.Instance != null)
                 {
-                    var instance = scope.ResolveOptional(handler);
-                    handler.GetMethod("Handle", new Type[] { rsp.DataType }).Invoke(instance, new object[] { rsp.Data });
+                    handler.HandlerType.GetMethod("Handle", new Type[] { rsp.DataType }).Invoke(handler.Instance, new object[] { rsp.Data });
+                }
+                else
+                {
+                    using (var scope = lift_scope.BeginLifetimeScope(S_XCLIENT))
+                    {
+                        var instance = scope.ResolveOptional(handler.HandlerType);
+                        handler.HandlerType.GetMethod("Handle", new Type[] { rsp.DataType }).Invoke(instance, new object[] { rsp.Data });
+                    }
                 }
             }
         }

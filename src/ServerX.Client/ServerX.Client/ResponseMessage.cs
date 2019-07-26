@@ -5,18 +5,36 @@ namespace ServerX.Client
 {
     public class ResponseMessage
     {
-        public ResponseMessage(IEnumerable<Type> handlers,object data,Type dataType)
+        public ResponseMessage(IEnumerable<SubInfo> handlers, object data, Type dataType)
         {
             Handlers = handlers;
             Data = data;
         }
-        public IEnumerable<Type> Handlers { get; }
+        public IEnumerable<SubInfo> Handlers { get; }
         public object Data { get; }
         public Type DataType { get; }
     }
+
+    public class SubInfo
+    {
+
+        public SubInfo(Type type, IEventHandler @event)
+        {
+            HandlerType = type;
+            Instance = @event;
+        }
+
+        public static SubInfo Create(Type type, IEventHandler @event)
+        {
+            return new SubInfo(type, @event);
+        }
+        public Type HandlerType { get; }
+        public IEventHandler Instance { get; }
+    }
+
     public class RequestMessage
     {
-        public RequestMessage(string url,object data)
+        public RequestMessage(string url, object data)
         {
             Url = url;
             Data = data;

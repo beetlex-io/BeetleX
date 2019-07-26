@@ -6,9 +6,14 @@
     }
     internal class HeartBeatHandler : IEventHandler<HeartBeat>
     {
+        readonly XClient client;
+        public HeartBeatHandler(XClient client)
+        {
+            this.client = client;
+        }
         public void Handle(HeartBeat @event)
         {
-            throw new System.NotImplementedException();
+            client.RaiseRecHeartBeat();
         }
     }
 }
