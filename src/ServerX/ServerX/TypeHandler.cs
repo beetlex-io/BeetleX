@@ -42,6 +42,9 @@ namespace ServerX
                 LoadControlers(ass);
             }
         }
+        public void Add(Controller ctl, string url)
+        {
+        }
         public void WriteType(object data, PipeStream stream)
         {
             var typename = data.GetType().FullName;

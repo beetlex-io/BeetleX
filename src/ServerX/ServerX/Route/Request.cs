@@ -33,31 +33,39 @@ namespace ServerX.Route
                 _response.Error("invaild message", 40);
                 return;
             }
-            if (meta.RouteInfo.IsHeartBeat()) _response.WriteHeartBeat();
-            else
+            if (action.Controller != null)
             {
-                Controller controller = null;
-                ILifetimeScope scope = _autofac.BeginLifetimeScope();
-                try
-                {
-                    controller = scope.ResolveOptional(action.ControllerType) as Controller;
-                    controller.Request = this;
-                    controller.Response = _response;
-                    if (!controller.OnActionExecuting(action)) return;
-                    if (action.OutArgumentType != null)
-                    {
-                        var obj = action.CurrentMethod.Invoke(controller, new object[] { meta.Token });
-                        controller.Response.OK(obj);
-                    }
-                    else action.CurrentMethod.Invoke(controller, new object[] { meta.Token });
-                }
-                catch (Exception ex)
-                {
-                    if (ex.InnerException != null) _response.Error(ex.InnerException.Message, 50);
-                    else _response.Error(ex.Message, 50);
-                }
+                InvokeController(action.Controller, meta);
+                return;
+            }
+            ILifetimeScope scope = _autofac.BeginLifetimeScope();
+            try
+            {
+                var controller = (Controller)scope.ResolveOptional(action.ControllerType);
+                InvokeController(controller, meta);
+            }
+            catch (Exception ex)
+            {
+                if (ex.InnerException != null) _response.Error(ex.InnerException.Message, 50);
+                else _response.Error(ex.Message, 50);
+            }
+            finally
+            {
                 scope.Dispose();
             }
+        }
+        void InvokeController(Controller controller, RequestMessage meta)
+        {
+            var route = meta.RouteInfo;
+            controller.Request = this;
+            controller.Response = _response;
+            if (!controller.OnActionExecuting(route)) return;
+            if (route.OutArgumentType != null)
+            {
+                var obj = route.CurrentMethod.Invoke(controller, new object[] { meta.Token });
+                controller.Response.OK(obj);
+            }
+            else route.CurrentMethod.Invoke(controller, new object[] { meta.Token });
         }
     }
 }
