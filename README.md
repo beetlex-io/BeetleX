@@ -12,12 +12,10 @@ high performance dotnet core socket tcp communication components support ssl
 - Http and websocket clients                     
   [https://github.com/IKende/HttpClients](https://github.com/IKende/HttpClients)
 
-## Nuget
-https://www.nuget.org/packages/BeetleX/
-
 ## Framework benchmarks last test status
 https://tfb-status.techempower.com/
-
+### 2019-08-01 result for .net
+![](https://github.com/IKende/FastHttpApi/blob/master/images/20190801.png?raw=true)
 ### Performance testing
 Server:E3-1230V2
 Bandwidth：10Gb
