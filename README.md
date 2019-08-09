@@ -5,13 +5,17 @@ high performance dotnet core socket tcp communication components support ssl
     [https://github.com/IKende/FastHttpApi](https://github.com/IKende/FastHttpApi)
 - High performance webapi gateway components  
   [https://github.com/IKende/Bumblebee](https://github.com/IKende/Bumblebee)
-- high-performance async/non-blocking  redis client components for dotnet core    
+- High-performance async/non-blocking  redis client components for dotnet core    
   [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
-- dotnet high performance remote interface invoke(RPC) communication components,implemente millions RPS remote interface method calls.
+- High performance remote interface invoke(RPC) communication components,implemente millions RPS remote interface method calls           
   [https://github.com/IKende/XRPC](https://github.com/IKende/XRPC)
+- Http and websocket clients                     
+  [https://github.com/IKende/HttpClients](https://github.com/IKende/HttpClients)
 
-## Nuget
-https://www.nuget.org/packages/BeetleX/
+## Framework benchmarks last test status
+https://tfb-status.techempower.com/
+### 2019-08-01 result for .net
+![](https://github.com/IKende/FastHttpApi/blob/master/images/20190801.png?raw=true)
 ### Performance testing
 Server:E3-1230V2
 Bandwidth：10Gb
@@ -23,6 +27,8 @@ Bandwidth：10Gb
 ![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_10kc.png?raw=true)
 ### 50k connections
 ![](https://github.com/IKende/BeetleX/blob/master/images/beetlex_50kc.png?raw=true)
+### 1m connections
+![](https://github.com/IKende/BeetleX/blob/master/images/1mconnections.png?raw=true)
 ### Create server
 ```csharp
      class Program : ServerHandlerBase
