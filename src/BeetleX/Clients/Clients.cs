@@ -570,30 +570,6 @@ namespace BeetleX.Clients
             }
         }
 
-        //private object mLockSend = new object();
-
-        //private bool EnterSend()
-        //{
-        //    lock (mLockSend)
-        //    {
-        //        if (!mSendStatus)
-        //        {
-        //            mSendStatus = true;
-        //            return true;
-        //        }
-        //        else
-        //            return false;
-        //    }
-        //}
-
-        //private void FreeSend()
-        //{
-        //    lock (mLockSend)
-        //    {
-        //        mSendStatus = false;
-        //    }
-        //}
-
         private int mSendStatus = 0;
 
         public bool SendStatus => mSendStatus == 1;

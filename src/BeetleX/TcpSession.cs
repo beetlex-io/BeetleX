@@ -133,8 +133,7 @@ namespace BeetleX
 
         private object DequeueSendMessage()
         {
-            object result;
-            if (mSendMessages.TryDequeue(out result))
+            if (mSendMessages.TryDequeue(out object result))
             {
                 System.Threading.Interlocked.Decrement(ref mCount);
             }
@@ -145,7 +144,6 @@ namespace BeetleX
         {
             try
             {
-
                 object data = DequeueSendMessage();
                 while (data != null)
                 {
@@ -168,6 +166,14 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
+                if(SendBufferPool is PrivateBufferPool sendPool)
+                {
+                    sendPool.Dispose();
+                }
+                if (ReceiveBufferPool is PrivateBufferPool receivePool)
+                {
+                    receivePool.Dispose();
+                }
             }
             catch
             {
@@ -261,9 +267,8 @@ namespace BeetleX
 
         internal void ProcessSendMessages()
         {
-
             IBuffer[] items;
-            if (IsDisposed)
+            if (IsDisposed || mCount==0)
                 return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
@@ -309,8 +314,8 @@ namespace BeetleX
                 }
                 else
                 {
-                    System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
-                    if (!mSendMessages.IsEmpty)
+                    mSendStatus = 0;
+                    if (mCount>0)
                         ProcessSendMessages();
                 }
             }
@@ -332,7 +337,7 @@ namespace BeetleX
 
         internal void SendCompleted()
         {
-            System.Threading.Interlocked.Exchange(ref mSendStatus, 0);
+            mSendStatus = 0;
             ProcessSendMessages();
         }
 
@@ -370,7 +375,7 @@ namespace BeetleX
             else
             {
                 Packet.Encode(data, this, stream);
-            }
+            }    
         }
 
         private void OnWriterFlash(Buffers.IBuffer data)

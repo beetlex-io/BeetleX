@@ -78,6 +78,7 @@ namespace BeetleX.Buffers
                     else
                     {
                         buffer.Free();
+                        SyncDataError = new BXException("ssl receive null data!");
                         break;
                     }
 

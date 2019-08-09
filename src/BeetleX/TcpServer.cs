@@ -34,8 +34,6 @@ namespace BeetleX
 
         private Dispatchs.DispatchCenter<SocketAsyncEventArgsX> mReceiveDispatchCenter = null;
 
-        // private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
-
         private long mVersion = 0;
 
         private bool mInitialized = false;
@@ -190,11 +188,11 @@ namespace BeetleX
                 {
                     Options.BufferPoolMaxMemory = 500;
                 }
-                maxBufferSize = (int)(((long)Options.BufferPoolMaxMemory * 1024 * 1024) / Options.BufferSize / 4);
+                maxBufferSize = (int)(((long)Options.BufferPoolMaxMemory * 1024 * 1024) / Options.BufferSize / Options.BufferPoolGroups);
                 if (maxBufferSize < Options.BufferPoolSize)
                     maxBufferSize = Options.BufferPoolSize;
-                mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, 4);
-                mSendBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, 4);
+                mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Options.BufferPoolGroups);
+                mSendBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Options.BufferPoolGroups);
                 mSessions = new ConcurrentDictionary<long, ISession>();
                 mInitialized = true;
                 mAcceptDispatcher = new Dispatchs.DispatchCenter<AcceptSocketInfo>(AcceptProcess, Math.Min(Environment.ProcessorCount, 16));
@@ -271,7 +269,7 @@ namespace BeetleX
                 Log(LogType.Info, null,
                    $"BeetleX [V:{typeof(TcpServer).Assembly.GetName().Version}]");
                 Log(LogType.Info, null,
-                    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}]");
+                    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}][Private Buffer:{Options.PrivateBufferPool}|{Options.PrivateBufferPoolSize/1024}KB]");
                 return true;
             }
             catch (Exception e_)
@@ -315,8 +313,6 @@ namespace BeetleX
                 server.OnConnected(cead);
                 ((TcpSession)session).SyncSSLData();
                 server.BeginReceive(state.Item1);
-                if (server.EnableLog(LogType.Info))
-                    server.Log(LogType.Info, session, "{0} begin receive", session.RemoteEndPoint);
 
             }
             catch (Exception e_)
@@ -336,8 +332,16 @@ namespace BeetleX
             session.Server = this;
             session.Host = e.Listen.Host;
             session.Port = e.Listen.Port;
-            session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
-            session.SendBufferPool = this.SendBufferPool.Next();
+            if (Options.PrivateBufferPool)
+            {
+                session.ReceiveBufferPool = new PrivateBufferPool(Options.BufferSize,Options.PrivateBufferPoolSize);
+                session.SendBufferPool = new PrivateBufferPool(Options.BufferSize, Options.PrivateBufferPoolSize);
+            }
+            else
+            {
+                session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
+                session.SendBufferPool = this.SendBufferPool.Next();
+            }
             session.SSL = e.Listen.SSL;
             session.Initialization(this, null);
             session.SendEventArgs.Completed += IO_Completed;
@@ -351,10 +355,6 @@ namespace BeetleX
             }
 
             session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
-            //if (Options.SendQueueEnabled)
-            //{
-            //    session.SendDispatcher = mSendDispatchCenter.Next();
-            //}
             AddSession(session);
             if (!e.Listen.SSL)
             {
@@ -362,8 +362,6 @@ namespace BeetleX
                 cead.Server = this;
                 cead.Session = session;
                 OnConnected(cead);
-                if (EnableLog(LogType.Debug))
-                    Log(LogType.Debug, session, "{0} begin receive", session.RemoteEndPoint);
                 BeginReceive(session);
 
             }
@@ -428,8 +426,14 @@ namespace BeetleX
 
         private void BeginReceive(ISession session)
         {
+            if (EnableLog(LogType.Info))
+                Log(LogType.Info, session, "{0} begin receive", session.RemoteEndPoint);
             if (session.IsDisposed)
+            {
+                if (EnableLog(LogType.Info))
+                    Log(LogType.Info, session, $"{session.RemoteEndPoint} begin receive cancel connection disposed");
                 return;
+            }
             Buffers.Buffer buffer = (Buffers.Buffer)session.ReceiveBufferPool.Pop();
             try
             {
@@ -462,9 +466,12 @@ namespace BeetleX
             ISession session = ex.Session;
             try
             {
-                if (session.Server.EnableLog(LogType.Trace))
+                if (EnableLog(LogType.Info))
+                    Log(LogType.Info, session, $"{session.RemoteEndPoint} receive {e.BytesTransferred} length completed");
+
+                if (EnableLog(LogType.Trace))
                 {
-                    session.Server.Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
+                    Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
                          BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
                         );
                 }
@@ -510,10 +517,11 @@ namespace BeetleX
                 }
                 else
                 {
+                    ex.BufferX.Free();
                     if (EnableLog(LogType.Debug))
                         Log(LogType.Debug, session, $"{session.RemoteEndPoint} receive close error {e.SocketError} receive:{e.BytesTransferred}");
                     session.Dispose();
-                    ex.BufferX.Free();
+                  
                 }
             }
             catch (Exception e_)

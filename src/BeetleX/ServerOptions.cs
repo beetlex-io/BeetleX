@@ -9,12 +9,10 @@ namespace BeetleX
     {
         public ServerOptions()
         {
-            //SendQueues = 2;
-            //SendQueueEnabled = false;
             MaxConnections = 10000;
             MaxAcceptQueue = 0;
             BufferSize = 1024 * 8;
-            BufferPoolSize = 10;
+            BufferPoolSize = 100;
             LittleEndian = true;
             Encoding = System.Text.Encoding.UTF8;
             ExecutionContextEnabled = false;
@@ -31,8 +29,10 @@ namespace BeetleX
             if (threads == 0)
                 threads = 1;
             IOQueues = Math.Min(threads, 16);
+            BufferPoolGroups = Environment.ProcessorCount;
 
         }
+
 
         public int MaxWaitMessages { get; set; } = 0;
 
@@ -96,6 +96,8 @@ namespace BeetleX
 
         public int BufferPoolSize { get; set; }
 
+        public int BufferPoolGroups { get; set; }
+
         public bool LittleEndian
         {
             get; set;
@@ -108,19 +110,17 @@ namespace BeetleX
 
         public bool IOQueueEnabled { get; set; }
 
-        //public bool SendQueueEnabled { get; set; }
-
-        //public int SendQueues { get; set; }
-
         public int BufferSize { get; set; }
-
-
 
         public int MaxConnections { get; set; }
 
         public int MaxAcceptQueue { get; set; }
 
         public bool ExecutionContextEnabled { get; set; }
+
+        public bool PrivateBufferPool { get; set; } = false;
+
+        public int PrivateBufferPoolSize { get; set; } = 1024 * 1024;
 
     }
 }

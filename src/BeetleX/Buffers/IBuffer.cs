@@ -74,7 +74,7 @@ namespace BeetleX.Buffers
 
         void Free();
 
-        BufferPool Pool { get; set; }
+        IBufferPool Pool { get; set; }
 
         bool TryWrite(Int16 value);
 
@@ -133,7 +133,7 @@ namespace BeetleX.Buffers
             _gcHandle = GCHandle.Alloc(mBufferData, GCHandleType.Pinned);
             mData = new Memory<byte>(mBufferData);
             mID = System.Threading.Interlocked.Increment(ref mIDQueue);
-        }
+        }       
 
         private GCHandle _gcHandle;
 
@@ -176,7 +176,7 @@ namespace BeetleX.Buffers
 
         public IBuffer Next { get; set; }
 
-        public BufferPool Pool { get; set; }
+        public IBufferPool Pool { get; set; }
 
         public long ID => mID;
 
@@ -266,24 +266,7 @@ namespace BeetleX.Buffers
             ReadAdvance(read);
             return read;
         }
-#if (NETSTANDARD2_0)
-        public ArraySegment<byte> Read(int bytes)
-        {
-            ArraySegment<byte> result;
-            int space = mLength - mPostion;
-            if (space > bytes)
-            {
-                result = new ArraySegment<byte>(Bytes, mPostion, bytes);
-                ReadAdvance(bytes);
-            }
-            else
-            {
-                result = new ArraySegment<byte>(Bytes, mPostion, space);
-                ReadAdvance(space);
-            }
-            return result;
-        }
-#else
+
         public Span<byte> Read(int bytes)
         {
             Span<byte> result;
@@ -300,7 +283,6 @@ namespace BeetleX.Buffers
             }
             return result;
         }
-#endif
 
         private int mUsing = 0;
 

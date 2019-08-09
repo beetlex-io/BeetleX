@@ -149,7 +149,7 @@ namespace BeetleX.Buffers
             for (int i = 0; i < count; i++)
             {
                 item = CreateBuffer();
-                mPool.Enqueue(item);
+                mPool.Push(item);
             }
         }
 
@@ -173,12 +173,13 @@ namespace BeetleX.Buffers
             return item;
         }
 
-        private System.Collections.Concurrent.ConcurrentQueue<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentQueue<IBuffer>();
+        private System.Collections.Concurrent.ConcurrentStack<IBuffer> mPool = new System.Collections.Concurrent.ConcurrentStack<IBuffer>();
 
         public IBuffer Pop()
         {
+
             IBuffer item;
-            if (!mPool.TryDequeue(out item))
+            if (!mPool.TryPop(out item))
             {
                 item = CreateBuffer();
             }
@@ -189,7 +190,7 @@ namespace BeetleX.Buffers
 
         public void Push(IBuffer item)
         {
-            mPool.Enqueue(item);
+            mPool.Push(item);
         }
 
         #region IDisposable Support
@@ -204,8 +205,10 @@ namespace BeetleX.Buffers
                     IBuffer buffer;
                     while (true)
                     {
-                        if (mPool.TryDequeue(out buffer))
+                        if (mPool.TryPop(out buffer))
                         {
+                            buffer.Pool = null;
+                            buffer.Next = null;
                             if (((Buffer)buffer).GCHandle.IsAllocated)
                             {
                                 ((Buffer)buffer).GCHandle.Free();
@@ -229,4 +232,75 @@ namespace BeetleX.Buffers
         #endregion
 
     }
+
+   public class PrivateBufferPool : IBufferPool
+    {
+        private Stack<IBuffer> mPool = new Stack<IBuffer>();
+
+        private int mCount;
+
+        private int mMaxCount;
+
+        public int Count => mCount;
+
+        private int mSize;
+
+        public PrivateBufferPool(int bufferSize,int MaxSize)
+        {
+            mSize = bufferSize;
+            mMaxCount = MaxSize/bufferSize+1;
+            var item = CreateBuffer();
+            Push(item);
+        }
+
+        public void Dispose()
+        {
+            while (true)
+            {
+                if (mPool.TryPop(out IBuffer buffer))
+                {
+                    buffer.Pool = null;
+                    buffer.Next = null;
+                    if (buffer is Buffer memory)
+                    {
+                        if (memory.GCHandle.IsAllocated)
+                        {
+                            memory.GCHandle.Free();
+                        }
+                    }
+                }
+                else
+                    break;
+            }
+        }
+
+        private Buffer CreateBuffer()
+        {
+            mCount++;
+            if (mMaxCount > 0 && mCount > mMaxCount)
+            {
+                throw new BXException("Create buffer error, maximum number of buffer pools!");
+            }
+            Buffer item = new Buffer(mSize);
+            item.Pool = this;
+
+            return item;
+        }
+
+        public IBuffer Pop()
+        {
+            if (!mPool.TryPop(out IBuffer item))
+            {
+                item = CreateBuffer();
+            }
+            item.Reset();
+            return item;
+        }
+
+        public void Push(IBuffer item)
+        {
+            mPool.Push(item);
+        }
+    }
+
 }
