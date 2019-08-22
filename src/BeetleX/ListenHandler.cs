@@ -26,6 +26,8 @@ namespace BeetleX
 
         public IPEndPoint IPEndPoint { get; private set; }
 
+        public bool ReuseAddress { get; set; } = false;
+
         public IServer Server { get; internal set; }
 
         public X509Certificate2 Certificate { get; internal set; }
@@ -92,6 +94,10 @@ namespace BeetleX
                 if (IPEndPoint.Address == IPAddress.IPv6Any)
                 {
                     Socket.DualMode = true;
+                }
+                if(this.ReuseAddress)
+                {
+                    Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 }
                 Socket.Bind(IPEndPoint);
                 Socket.Listen(512 * 4);

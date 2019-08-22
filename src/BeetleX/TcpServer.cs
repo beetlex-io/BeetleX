@@ -245,7 +245,6 @@ namespace BeetleX
 
         private void OnListenAcceptCallBack(AcceptSocketInfo e)
         {
-            //mAcceptDispatcher.Enqueue(e);
             Task.Run(() => AcceptProcess(e));
         }
 
@@ -755,7 +754,6 @@ namespace BeetleX
             }
         }
 
-        //释放Socket对象
         internal static void CloseSocket(Socket socket)
         {
             try

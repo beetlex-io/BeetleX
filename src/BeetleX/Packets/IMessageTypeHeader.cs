@@ -186,10 +186,6 @@ namespace BeetleX.Packets
             mIDType = MessageIDType.STRING;
         }
 
-
-
-
-
         public object ID
         {
             get

@@ -166,7 +166,7 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
-                if(SendBufferPool is PrivateBufferPool sendPool)
+                if (SendBufferPool is PrivateBufferPool sendPool)
                 {
                     sendPool.Dispose();
                 }
@@ -217,17 +217,8 @@ namespace BeetleX
             set;
         }
 
-        //internal Dispatchs.SingleThreadDispatcher<ISession> SendDispatcher
-        //{
-        //    get;
-        //    set;
-        //}
 
-        public double TimeOut
-        {
-            get;
-            set;
-        }
+        public double TimeOut{get;set;} = 999999999;
 
         public EndPoint RemoteEndPoint
         {
@@ -268,7 +259,7 @@ namespace BeetleX
         internal void ProcessSendMessages()
         {
             IBuffer[] items;
-            if (IsDisposed || mCount==0)
+            if (IsDisposed || mCount == 0)
                 return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
@@ -315,7 +306,7 @@ namespace BeetleX
                 else
                 {
                     mSendStatus = 0;
-                    if (mCount>0)
+                    if (mCount > 0)
                         ProcessSendMessages();
                 }
             }
@@ -375,7 +366,7 @@ namespace BeetleX
             else
             {
                 Packet.Encode(data, this, stream);
-            }    
+            }
         }
 
         private void OnWriterFlash(Buffers.IBuffer data)
@@ -425,13 +416,9 @@ namespace BeetleX
                 mBaseNetStream.SSL = true;
                 mSslStream = new SslStreamX(this.SendBufferPool, server.Options.Encoding,
                     server.Options.LittleEndian, mBaseNetStream, false);
-#if(NETSTANDARD2_0)
-                mSslStream.BeginAuthenticateAsServer(Server.Certificate, new AsyncCallback(asyncCallback),
-                    new Tuple<TcpSession, SslStream>(this, this.mSslStream));
-#else
+
                 mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
-#endif
             }
             catch (Exception e_)
             {

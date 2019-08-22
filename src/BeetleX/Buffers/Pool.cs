@@ -125,6 +125,8 @@ namespace BeetleX.Buffers
 
         public static int POOL_MAX_SIZE = 1024 * 20;
 
+        private LinkedList<Buffer> linkBuffers = new LinkedList<Buffer>();
+
         public BufferPool()
         {
             Init(BUFFER_SIZE, POOL_SIZE, POOL_MAX_SIZE);
@@ -151,6 +153,35 @@ namespace BeetleX.Buffers
                 item = CreateBuffer();
                 mPool.Push(item);
             }
+            mCleanTime = new Timer(OnClean, null, 1000 * 1800, 1000 * 1800);
+        }
+
+        private System.Threading.Timer mCleanTime;
+
+        private void OnClean(object state)
+        {
+            try
+            {
+                lock (linkBuffers)
+                {
+                    var item = linkBuffers.First;
+                    while (item != null)
+                    {
+                        var nitem = item.Next;
+                        if (item.Value.Unused)
+                        {
+                            item.Value.Delete();
+                            linkBuffers.Remove(item);
+                            Interlocked.Decrement(ref mCount);
+                        }
+                        item = nitem;
+                    }
+                }
+            }
+            catch (Exception e_)
+            {
+
+            }
         }
 
         public int Count
@@ -163,13 +194,15 @@ namespace BeetleX.Buffers
 
         private Buffer CreateBuffer()
         {
-            mCount = System.Threading.Interlocked.Increment(ref mCount);
             if (mMaxCount > 0 && mCount > mMaxCount)
             {
                 throw new BXException("Create buffer error, maximum number of buffer pools!");
             }
+            Interlocked.Increment(ref mCount);
             Buffer item = new Buffer(mSize);
             item.Pool = this;
+            lock (linkBuffers)
+                linkBuffers.AddLast(item);
             return item;
         }
 
@@ -202,6 +235,10 @@ namespace BeetleX.Buffers
             {
                 if (disposing)
                 {
+                    if (mCleanTime != null)
+                        mCleanTime.Dispose();
+                    lock (linkBuffers)
+                        linkBuffers.Clear();
                     IBuffer buffer;
                     while (true)
                     {
@@ -233,7 +270,7 @@ namespace BeetleX.Buffers
 
     }
 
-   public class PrivateBufferPool : IBufferPool
+    public class PrivateBufferPool : IBufferPool
     {
         private Stack<IBuffer> mPool = new Stack<IBuffer>();
 
@@ -245,16 +282,51 @@ namespace BeetleX.Buffers
 
         private int mSize;
 
-        public PrivateBufferPool(int bufferSize,int MaxSize)
+        private LinkedList<Buffer> linkBuffers = new LinkedList<Buffer>();
+
+        public PrivateBufferPool(int bufferSize, int MaxSize)
         {
             mSize = bufferSize;
-            mMaxCount = MaxSize/bufferSize+1;
+            mMaxCount = MaxSize / bufferSize + 1;
             var item = CreateBuffer();
             Push(item);
+            mCleanTime = new Timer(OnClean, null, 1000 * 1800, 1000 * 1800);
+        }
+
+        private System.Threading.Timer mCleanTime;
+
+        private void OnClean(object state)
+        {
+            try
+            {
+                lock (linkBuffers)
+                {
+                    var item = linkBuffers.First;
+                    while (item != null)
+                    {
+                        var nitem = item.Next;
+                        if (item.Value.Unused)
+                        {
+                            item.Value.Delete();
+                            linkBuffers.Remove(item);
+                            Interlocked.Decrement(ref mCount);
+                        }
+                        item = nitem;
+                    }
+                }
+            }
+            catch (Exception e_)
+            {
+
+            }
         }
 
         public void Dispose()
         {
+            if (mCleanTime != null)
+                mCleanTime.Dispose();
+            lock (linkBuffers)
+                linkBuffers.Clear();
             while (true)
             {
                 if (mPool.TryPop(out IBuffer buffer))
@@ -276,14 +348,15 @@ namespace BeetleX.Buffers
 
         private Buffer CreateBuffer()
         {
-            mCount++;
             if (mMaxCount > 0 && mCount > mMaxCount)
             {
                 throw new BXException("Create buffer error, maximum number of buffer pools!");
             }
+            Interlocked.Increment(ref mCount);
             Buffer item = new Buffer(mSize);
             item.Pool = this;
-
+            lock (linkBuffers)
+                linkBuffers.AddLast(item);
             return item;
         }
 

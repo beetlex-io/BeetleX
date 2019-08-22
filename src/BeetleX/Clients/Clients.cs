@@ -893,6 +893,19 @@ namespace BeetleX.Clients
             return mReadMessageAwait;
         }
 
+        public AwaitStruct<PipeStream> ReceiveFrom(Action<PipeStream> writeHandler)
+        {
+            var result = Receive();
+            if (writeHandler != null)
+            {
+                PipeStream stream = this.Stream.ToPipeStream();
+                writeHandler(stream);
+                if (stream.CacheLength > 0)
+                    this.Stream.Flush();
+            }
+            return result;
+        }
+
         public AwaitStruct<T> ReceiveMessage<T>()
         {
             return new AwaitStruct<T>(ReceiveMessage());
@@ -902,7 +915,6 @@ namespace BeetleX.Clients
         {
             awaitPipeStream.Reset();
             Connect();
-            BeginReceive();
             return new AwaitStruct<PipeStream>(awaitPipeStream);
         }
 

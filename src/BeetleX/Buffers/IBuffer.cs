@@ -50,11 +50,8 @@ namespace BeetleX.Buffers
         Memory<byte> GetMemory(int size);
 
         Memory<byte> GetMemory();
-#if (NETSTANDARD2_0)
-        ArraySegment<byte> Read(int bytes);
-#else
+
         Span<byte> Read(int bytes);
-#endif
 
         void WriteAdvance(int bytes);
 
@@ -133,7 +130,7 @@ namespace BeetleX.Buffers
             _gcHandle = GCHandle.Alloc(mBufferData, GCHandleType.Pinned);
             mData = new Memory<byte>(mBufferData);
             mID = System.Threading.Interlocked.Increment(ref mIDQueue);
-        }       
+        }
 
         private GCHandle _gcHandle;
 
@@ -227,6 +224,7 @@ namespace BeetleX.Buffers
             }
             return false;
         }
+
         public Span<byte> GetSpan()
         {
             return mData.Span.Slice(mPostion, mFree);
@@ -295,14 +293,41 @@ namespace BeetleX.Buffers
             System.Threading.Interlocked.Exchange(ref mUsing, 1);
 
         }
+        #region delete
 
+        internal long mLastActiveTime;
+
+        internal bool Unused
+        {
+            get
+            {
+                return (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 3600 * 1000 && mUsing == 1;
+            }
+        }
+
+        internal void Delete()
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref mUsing, -1, 1) == 1)
+            {
+                if (GCHandle.IsAllocated)
+                {
+                    GCHandle.Free();
+                }
+                Pool = null;
+                Next = null;
+            }
+        }
+        #endregion
 
         public void Free()
         {
             if (System.Threading.Interlocked.CompareExchange(ref mUsing, 0, 1) == 1)
             {
                 if (Pool != null)
+                {
                     Pool.Push(this);
+                    mLastActiveTime = TimeWatch.GetElapsedMilliseconds();
+                }
             }
 
         }
