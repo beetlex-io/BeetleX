@@ -42,7 +42,7 @@ Install-Package BeetleX -Version 1.3.7.2
         }
     }
 ```
-### client
+### Client
 ```csharp
      TcpClient client = SocketFactory.CreateClient<TcpClient>("127.0.0.1", 9090);
      //ssl
@@ -58,7 +58,7 @@ Install-Package BeetleX -Version 1.3.7.2
          Console.WriteLine(line);
      }
 ```
-### async client
+### Async client
 ```csharp
 
      AsyncTcpClient client = SocketFactory.CreateClient<AsyncTcpClient>("127.0.0.1", 9090);
