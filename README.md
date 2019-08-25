@@ -34,9 +34,10 @@ Install-Package BeetleX -Version 1.3.7.2
         }
         public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
         {
-            string name = e.Stream.ToPipeStream().ReadLine();
+            var pipeStream = e.Stream.ToPipeStream();
+            string name = pipeStream.ReadLine();
             Console.WriteLine(name);
-            e.Session.Stream.ToPipeStream().WriteLine("hello " + name);
+            pipeStream.WriteLine("hello " + name);
             e.Session.Stream.Flush();
             base.SessionReceive(server, e);
         }
