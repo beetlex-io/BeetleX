@@ -13,9 +13,8 @@ namespace Chat.Server
             server = SocketFactory.CreateTcpServer<Program>();
             //server.Options.DefaultListen.CertificateFile = "text.pfx";
             //server.Options.DefaultListen.SSL = true;
-            //server.Options.DefaultListen.CertificatePassword = "123456";
+            //server.Options.DefaultListen.CertificatePassword = "123456";          
             server.Open();
-            Console.Write(server);
             Console.Read();
         }
         public override void SessionReceive(IServer server, SessionReceiveEventArgs e)

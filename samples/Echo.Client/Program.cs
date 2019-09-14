@@ -17,8 +17,8 @@ namespace Echo.Client
                 client.Stream.ToPipeStream().WriteLine(line);
                 client.Stream.Flush();
                 var reader = client.Receive();
-                line = reader.ToPipeStream().ReadLine();
-                Console.WriteLine(line);
+                line = reader.ReadLine();
+                Console.WriteLine($"{DateTime.Now} {line}");
             }
             Console.WriteLine("Hello World!");
         }

@@ -25,11 +25,6 @@ namespace Json.Server
             //server.Options.DefaultListen.SSL = true;
             //server.Options.DefaultListen.CertificatePassword = "123456";
             mServer.Open();
-            while (true)
-            {
-                Console.Write(mServer);
-                System.Threading.Thread.Sleep(1000);
-            }
             Console.Read();
         }
 

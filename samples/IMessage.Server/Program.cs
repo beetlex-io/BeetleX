@@ -24,7 +24,6 @@ namespace IMessage.Server
             //server.Options.DefaultListen.SSL = true;
             //server.Options.DefaultListen.CertificatePassword = "123456";
             mServer.Open();
-            Console.Write(mServer);
             Console.Read();
         }
 

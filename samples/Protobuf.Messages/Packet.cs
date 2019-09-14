@@ -150,7 +150,7 @@ namespace Protobuf.Messages
         {
             Type type = TypeHeader.ReadType(reader);
             int bodySize = reader.ReadInt32();
-            return reader.Stream.Deserialize(bodySize, type);
+            return ProtoBuf.Meta.RuntimeTypeModel.Default.Deserialize(reader, null,type,bodySize);
         }
 
         protected override void OnWrite(ISession session, object data, PipeStream writer)
@@ -158,7 +158,7 @@ namespace Protobuf.Messages
             TypeHeader.WriteType(data, writer);
             MemoryBlockCollection bodysize = writer.Allocate(4);
             int bodyStartlegnth = (int)writer.CacheLength;
-            ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(writer.Stream, data);
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(writer, data);
             bodysize.Full((int)writer.CacheLength - bodyStartlegnth);
         }
     }
