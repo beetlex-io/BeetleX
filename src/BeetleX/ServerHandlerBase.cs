@@ -105,7 +105,8 @@ namespace BeetleX
 
         public virtual void SessionReceive(IServer server, SessionReceiveEventArgs e)
         {
-
+            if (server.Options.SessionTimeOut > 0)
+                server.UpdateSession(e.Session);
         }
 
 
