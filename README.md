@@ -11,10 +11,8 @@ high performance dotnet core socket tcp communication components support ssl
   [https://github.com/IKende/XRPC](https://github.com/IKende/XRPC)
 - Http and websocket clients                     
   [https://github.com/IKende/HttpClients](https://github.com/IKende/HttpClients)
-## Using
-```
-Install-Package BeetleX -Version 1.3.7.2
-```
+## samples
+[https://github.com/IKende/BeetleX-Samples](https://github.com/IKende/BeetleX-Samples)
 ### Server
 ```csharp
     class Program : ServerHandlerBase
