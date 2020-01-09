@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BeetleX" Version="1.4.8" />
+    <PackageReference Include="MessagePack" Version="1.8.80" />
+  </ItemGroup>
+
+</Project>
