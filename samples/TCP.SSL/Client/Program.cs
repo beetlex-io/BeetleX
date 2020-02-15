@@ -23,7 +23,7 @@ namespace Client
                 Console.Write("Enter City:");
                 register.City = Console.ReadLine();
                 Console.Write("Enter Password:");
-                register.City = Console.ReadLine();
+                register.PassWord = Console.ReadLine();
                 client.SendMessage(register);
                 var result = client.ReceiveMessage<Messages.Register>();
                 Console.WriteLine($"{result.Name} {result.EMail} {result.City} {result.DateTime}");

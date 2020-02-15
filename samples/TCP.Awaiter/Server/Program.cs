@@ -18,8 +18,8 @@ namespace Server
         }
         protected override void OnReceiveMessage(IServer server, ISession session, object message)
         {
-           // Console.WriteLine(message);
-            server.Send($"hello {message}", session);
+            Console.WriteLine(message);
+            server.Send($"hello {message} {DateTime.Now}", session);
         }
     }
 

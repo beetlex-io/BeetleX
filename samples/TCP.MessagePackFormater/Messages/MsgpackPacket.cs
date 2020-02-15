@@ -21,7 +21,7 @@ namespace Messages
             return new MsgpackPacket();
         }
 
-        protected override object OnReader(ISession session, PipeStream stream)
+        protected override object OnRead(ISession session, PipeStream stream)
         {
             Type type = TypeHeader.ReadType(stream);
             var size = CurrentSize - 4;

@@ -11,7 +11,7 @@ namespace Client
         static void Main(string[] args)
         {
             TcpClient client = SocketFactory.CreateClient<TcpClient, Messages.JsonClientPacket>("127.0.0.1", 9090);
-            client.LocalEndPoint = new System.Net.IPEndPoint(IPAddress.Parse("127.0.0.1"), 9022);
+           // client.LocalEndPoint = new System.Net.IPEndPoint(IPAddress.Parse("127.0.0.1"), 9022);
             while (true)
             {
                 Messages.Register register = new Messages.Register();
@@ -22,7 +22,7 @@ namespace Client
                 Console.Write("Enter City:");
                 register.City = Console.ReadLine();
                 Console.Write("Enter Password:");
-                register.City = Console.ReadLine();
+                register.PassWord = Console.ReadLine();
                 client.SendMessage(register);
                 var result = client.ReceiveMessage<Messages.Register>();
                 Console.WriteLine($"{result.Name} {result.EMail} {result.City} {result.DateTime}");
