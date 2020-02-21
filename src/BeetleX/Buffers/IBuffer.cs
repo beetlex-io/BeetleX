@@ -71,7 +71,7 @@ namespace BeetleX.Buffers
 
         void Free();
 
-        BufferPool Pool { get; set; }
+        IBufferPool Pool { get; set; }
 
         bool TryWrite(Int16 value);
 
@@ -174,7 +174,7 @@ namespace BeetleX.Buffers
 
         public IBuffer Next { get; set; }
 
-        public BufferPool Pool { get; set; }
+        public IBufferPool Pool { get; set; }
 
         public long ID => mID;
 
@@ -225,6 +225,7 @@ namespace BeetleX.Buffers
             }
             return false;
         }
+
         public Span<byte> GetSpan()
         {
             return mData.Span.Slice(mPostion, mFree);
@@ -282,7 +283,6 @@ namespace BeetleX.Buffers
             return result;
         }
 
-
         private int mUsing = 0;
 
         public void Reset()
@@ -294,8 +294,6 @@ namespace BeetleX.Buffers
             System.Threading.Interlocked.Exchange(ref mUsing, 1);
 
         }
-
-
         #region delete
 
         internal long mLastActiveTime;
@@ -663,7 +661,7 @@ namespace BeetleX.Buffers
                     while (next != null)
                     {
                         Last = next;
-                        // next = buffer.Next;
+                        //next = buffer.Next;
                         next = next.Next;
                     }
                 }

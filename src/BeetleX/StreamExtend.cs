@@ -228,8 +228,6 @@ namespace BeetleX
                 return count;
             }
 
-
-
         }
 
         public static int Write(Stream stream, Encoding encoding, string value, params object[] parameters)

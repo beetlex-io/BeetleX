@@ -49,6 +49,7 @@ namespace BeetleX
         }
 
         private object mLockConsole = new object();
+
         protected virtual void OnLogToConsole(IServer server, ServerLogEventArgs e)
         {
             lock (mLockConsole)

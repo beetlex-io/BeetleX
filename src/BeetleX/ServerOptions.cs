@@ -9,8 +9,6 @@ namespace BeetleX
     {
         public ServerOptions()
         {
-            //SendQueues = 2;
-            //SendQueueEnabled = false;
             MaxConnections = 10000;
             MaxAcceptQueue = 0;
             BufferSize = 1024 * 4;
@@ -32,7 +30,9 @@ namespace BeetleX
                 threads = 1;
             IOQueues = Math.Min(threads, 16);
             BufferPoolGroups = Environment.ProcessorCount;
+
         }
+
 
         public int MaxWaitMessages { get; set; } = 0;
 
@@ -110,19 +110,17 @@ namespace BeetleX
 
         public bool IOQueueEnabled { get; set; }
 
-        //public bool SendQueueEnabled { get; set; }
-
-        //public int SendQueues { get; set; }
-
         public int BufferSize { get; set; }
-
-
 
         public int MaxConnections { get; set; }
 
         public int MaxAcceptQueue { get; set; }
 
         public bool ExecutionContextEnabled { get; set; }
+
+        public bool PrivateBufferPool { get; set; } = false;
+
+        public int PrivateBufferPoolSize { get; set; } = 1024 * 1024;
 
     }
 }

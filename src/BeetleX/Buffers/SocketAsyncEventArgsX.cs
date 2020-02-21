@@ -47,11 +47,7 @@ namespace BeetleX.Buffers
         {
             this.IsReceive = true;
             this.UserToken = useToken;
-#if (NETSTANDARD2_0)
-            this.SetBuffer(BufferX.Data, 0, size);
-#else
             this.SetBuffer(BufferX.Memory);
-#endif
             var lastSocket = LastSocket;
             LastSocket = socket;
             if (!socket.ReceiveAsync(this))
@@ -91,11 +87,7 @@ namespace BeetleX.Buffers
         {
             this.IsReceive = false;
             this.UserToken = userToken;
-#if (NETSTANDARD2_0)
-            this.SetBuffer(BufferX.Data, BufferX.Postion, length);
-#else
-            this.SetBuffer(BufferX.Memory.Slice(0, length));
-#endif
+            this.SetBuffer(BufferX.Memory.Slice(BufferX.Postion, length));
             var lastSocket = LastSocket;
             LastSocket = socket;
             if (!socket.SendAsync(this))

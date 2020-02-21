@@ -104,7 +104,7 @@ namespace BeetleX.Buffers
                     {
                         if (mDefaultGroup == null)
                         {
-                            int count = 4;
+                            int count =4;
                             int poolSize = BufferPool.POOL_SIZE / count;
                             int poolMaxSize = BufferPool.POOL_MAX_SIZE / count;
                             mDefaultGroup = new BufferPoolGroup(BufferPool.BUFFER_SIZE, poolSize, poolMaxSize, count);
@@ -269,4 +269,111 @@ namespace BeetleX.Buffers
         #endregion
 
     }
+
+    public class PrivateBufferPool : IBufferPool
+    {
+        private Stack<IBuffer> mPool = new Stack<IBuffer>();
+
+        private int mCount;
+
+        private int mMaxCount;
+
+        public int Count => mCount;
+
+        private int mSize;
+
+        private LinkedList<Buffer> linkBuffers = new LinkedList<Buffer>();
+
+        public PrivateBufferPool(int bufferSize, int MaxSize)
+        {
+            mSize = bufferSize;
+            mMaxCount = MaxSize / bufferSize + 1;
+            var item = CreateBuffer();
+            Push(item);
+            mCleanTime = new Timer(OnClean, null, 1000 * 1800, 1000 * 1800);
+        }
+
+        private System.Threading.Timer mCleanTime;
+
+        private void OnClean(object state)
+        {
+            try
+            {
+                lock (linkBuffers)
+                {
+                    var item = linkBuffers.First;
+                    while (item != null)
+                    {
+                        var nitem = item.Next;
+                        if (item.Value.Unused)
+                        {
+                            item.Value.Delete();
+                            linkBuffers.Remove(item);
+                            Interlocked.Decrement(ref mCount);
+                        }
+                        item = nitem;
+                    }
+                }
+            }
+            catch (Exception e_)
+            {
+
+            }
+        }
+
+        public void Dispose()
+        {
+            if (mCleanTime != null)
+                mCleanTime.Dispose();
+            lock (linkBuffers)
+                linkBuffers.Clear();
+            while (true)
+            {
+                if (mPool.TryPop(out IBuffer buffer))
+                {
+                    buffer.Pool = null;
+                    buffer.Next = null;
+                    if (buffer is Buffer memory)
+                    {
+                        if (memory.GCHandle.IsAllocated)
+                        {
+                            memory.GCHandle.Free();
+                        }
+                    }
+                }
+                else
+                    break;
+            }
+        }
+
+        private Buffer CreateBuffer()
+        {
+            if (mMaxCount > 0 && mCount > mMaxCount)
+            {
+                throw new BXException("Create buffer error, maximum number of buffer pools!");
+            }
+            Interlocked.Increment(ref mCount);
+            Buffer item = new Buffer(mSize);
+            item.Pool = this;
+            lock (linkBuffers)
+                linkBuffers.AddLast(item);
+            return item;
+        }
+
+        public IBuffer Pop()
+        {
+            if (!mPool.TryPop(out IBuffer item))
+            {
+                item = CreateBuffer();
+            }
+            item.Reset();
+            return item;
+        }
+
+        public void Push(IBuffer item)
+        {
+            mPool.Push(item);
+        }
+    }
+
 }

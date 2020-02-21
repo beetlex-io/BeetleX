@@ -42,6 +42,7 @@ namespace BeetleX.Dispatchs
                 }
             }
         }
+
         private void OnStart(object state)
         {
 
@@ -77,14 +78,7 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
-#if(NETSTANDARD2_0)
-            while (mQueue.TryDequeue(out T item))
-            {
-
-            }
-#else
             mQueue.Clear();
-#endif
         }
     }
 
@@ -196,12 +190,7 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
-#if (NETSTANDARD2_0)
-            while (mQueue.TryDequeue(out T item))
-            { }
-#else
             mQueue.Clear();
-#endif
         }
 
     }

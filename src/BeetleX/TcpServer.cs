@@ -35,8 +35,6 @@ namespace BeetleX
 
         private Dispatchs.DispatchCenter<SocketAsyncEventArgsX> mReceiveDispatchCenter = null;
 
-        // private Dispatchs.DispatchCenter<ISession> mSendDispatchCenter = null;
-
         private long mVersion = 0;
 
         private bool mInitialized = false;
@@ -191,7 +189,7 @@ namespace BeetleX
                 {
                     Options.BufferPoolMaxMemory = 500;
                 }
-                maxBufferSize = Options.BufferPoolMaxMemory * 1024 * 1024 / Options.BufferSize / Options.BufferPoolGroups;
+                maxBufferSize = (int)(((long)Options.BufferPoolMaxMemory * 1024 * 1024) / Options.BufferSize / Options.BufferPoolGroups);
                 if (maxBufferSize < Options.BufferPoolSize)
                     maxBufferSize = Options.BufferPoolSize;
                 mReceiveBufferPoolGroup = new BufferPoolGroup(Options.BufferSize, Options.BufferPoolSize, maxBufferSize, Options.BufferPoolGroups);
@@ -249,7 +247,6 @@ namespace BeetleX
 
         private void OnListenAcceptCallBack(AcceptSocketInfo e)
         {
-            //mAcceptDispatcher.Enqueue(e);
             Task.Run(() => AcceptProcess(e));
         }
 
@@ -271,9 +268,9 @@ namespace BeetleX
                         Log(LogType.Warring, null, "no serverGC mode,please enable serverGC mode!");
                 }
                 //Log(LogType.Info, null,
-                //    $"BeetleX [V:{typeof(TcpServer).Assembly.GetName().Version}]");
+                //   $"BeetleX [V:{typeof(TcpServer).Assembly.GetName().Version}]");
                 //Log(LogType.Info, null,
-                //    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}]");
+                //    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}][Private Buffer:{Options.PrivateBufferPool}|{Options.PrivateBufferPoolSize/1024}KB]");
                 if (WriteLogo != null)
                     WriteLogo();
                 else
@@ -297,7 +294,7 @@ namespace BeetleX
             var logo = "\r\n";
             logo += "*******************************************************************************\r\n";
             logo += " BeetleX tcp services framework \r\n";
-          
+            
             logo += $" {productAttr.Copyright}\r\n";
             logo += $" ServerGC [{GCSettings.IsServerGC}]\r\n";
             logo += $" Version  [{typeof(BeetleX.BXException).Assembly.GetName().Version}]\r\n";
@@ -361,8 +358,16 @@ namespace BeetleX
             session.Server = this;
             session.Host = e.Listen.Host;
             session.Port = e.Listen.Port;
-            session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
-            session.SendBufferPool = this.SendBufferPool.Next();
+            if (Options.PrivateBufferPool)
+            {
+                session.ReceiveBufferPool = new PrivateBufferPool(Options.BufferSize, Options.PrivateBufferPoolSize);
+                session.SendBufferPool = new PrivateBufferPool(Options.BufferSize, Options.PrivateBufferPoolSize);
+            }
+            else
+            {
+                session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
+                session.SendBufferPool = this.SendBufferPool.Next();
+            }
             session.SSL = e.Listen.SSL;
             session.Initialization(this, null);
             session.SendEventArgs.Completed += IO_Completed;
@@ -376,10 +381,6 @@ namespace BeetleX
             }
 
             session.ReceiveDispatcher = mReceiveDispatchCenter.Next();
-            //if (Options.SendQueueEnabled)
-            //{
-            //    session.SendDispatcher = mSendDispatchCenter.Next();
-            //}
             AddSession(session);
             if (!e.Listen.SSL)
             {
@@ -459,7 +460,7 @@ namespace BeetleX
                     Log(LogType.Info, session, $"{session.RemoteEndPoint} begin receive cancel connection disposed");
                 return;
             }
-            Buffers.Buffer buffer = null;
+            Buffers.Buffer buffer=null;
             try
             {
                 buffer = (Buffers.Buffer)session.ReceiveBufferPool.Pop();
@@ -495,9 +496,10 @@ namespace BeetleX
             {
                 if (EnableLog(LogType.Info))
                     Log(LogType.Info, session, $"{session.RemoteEndPoint} receive {e.BytesTransferred} length completed");
-                if (session.Server.EnableLog(LogType.Trace))
+
+                if (EnableLog(LogType.Trace))
                 {
-                    session.Server.Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
+                    Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
                          BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
                         );
                 }
@@ -543,10 +545,11 @@ namespace BeetleX
                 }
                 else
                 {
+                    ex.BufferX.Free();
                     if (EnableLog(LogType.Debug))
                         Log(LogType.Debug, session, $"{session.RemoteEndPoint} receive close error {e.SocketError} receive:{e.BytesTransferred}");
                     session.Dispose();
-                    ex.BufferX.Free();
+
                 }
             }
             catch (Exception e_)
@@ -585,7 +588,6 @@ namespace BeetleX
                     }
                     else
                     {
-                        IBuffer nextbuf = buffer.Next;
                         try
                         {
                             buffer.Completed?.Invoke(buffer);
@@ -594,6 +596,7 @@ namespace BeetleX
                         {
 
                         }
+                        IBuffer nextbuf = buffer.Next;
                         buffer.Free();
                         if (nextbuf != null)
                         {
@@ -788,7 +791,6 @@ namespace BeetleX
             }
         }
 
-        //释放Socket对象
         internal static void CloseSocket(Socket socket)
         {
             try

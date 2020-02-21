@@ -91,10 +91,10 @@ namespace BeetleX.Buffers
                 }
                 finally
                 {
-                    receive?.Invoke();
+                   receive?.Invoke();
+
                 }
             }
-
         }
 
         protected override void Dispose(bool disposing)

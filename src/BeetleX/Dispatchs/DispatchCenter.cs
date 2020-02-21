@@ -38,17 +38,6 @@ namespace BeetleX.Dispatchs
             }
         }
 
-        public int Count
-        {
-            get
-            {
-                int count = 0;
-                foreach (var item in mDispatchers)
-                    count += item.Count;
-                return count;
-            }
-        }
-
         public void Enqueue(T data, int waitLength = 5)
         {
             if (waitLength < 2)
@@ -69,6 +58,18 @@ namespace BeetleX.Dispatchs
                 Next().Enqueue(data);
             }
         }
+
+        public int Count
+        {
+            get
+            {
+                int count = 0;
+                foreach (var item in mDispatchers)
+                    count += item.Count;
+                return count;
+            }
+        }
+
 
         public SingleThreadDispatcher<T> Get(object data)
         {

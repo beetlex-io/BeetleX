@@ -20,13 +20,13 @@ namespace BeetleX
 
         public bool SyncAccept { get; set; } = true;
 
-        public bool ReuseAddress { get; set; } = false;
-
         public bool SSL { get; set; }
 
         public Socket Socket { get; internal set; }
 
         public IPEndPoint IPEndPoint { get; private set; }
+
+        public bool ReuseAddress { get; set; } = false;
 
         public IServer Server { get; internal set; }
 
@@ -72,7 +72,6 @@ namespace BeetleX
             }
             BeginListen();
         }
-
 
         private void BeginListen()
         {
@@ -127,6 +126,33 @@ namespace BeetleX
             }
         }
 
+        private void OnSyncAccept()
+        {
+            try
+            {
+                while (true)
+                {
+                    var acceptSocket = Socket.Accept();
+                    AcceptSocketInfo item = new AcceptSocketInfo();
+                    item.Socket = acceptSocket;
+                    item.Listen = this;
+                    mAcceptCallBack(item);
+                }
+            }
+            catch (Exception e_)
+            {
+                Error = e_;
+                if (Server.EnableLog(EventArgs.LogType.Error))
+                {
+                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept error {e_.Message}|{e_.StackTrace}!");
+                }
+                if (Server.EnableLog(EventArgs.LogType.Warring))
+                {
+                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
+                }
+            }
+        }
+
         private void OnAcceptCompleted(object sender, SocketAsyncEventArgs e)
         {
             try
@@ -173,32 +199,6 @@ namespace BeetleX
         }
 
 
-        private void OnSyncAccept()
-        {
-            try
-            {
-                while (true)
-                {
-                    var acceptSocket = Socket.Accept();
-                    AcceptSocketInfo item = new AcceptSocketInfo();
-                    item.Socket = acceptSocket;
-                    item.Listen = this;
-                    mAcceptCallBack(item);
-                }
-            }
-            catch (Exception e_)
-            {
-                Error = e_;
-                if (Server.EnableLog(EventArgs.LogType.Error))
-                {
-                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept error {e_.Message}|{e_.StackTrace}!");
-                }
-                if (Server.EnableLog(EventArgs.LogType.Warring))
-                {
-                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
-                }
-            }
-        }
 
         private int mAsyncAccepts = 0;
 
@@ -210,6 +210,7 @@ namespace BeetleX
             }
             try
             {
+
                 mAcceptEventArgs.AcceptSocket = null;
                 if (!Socket.AcceptAsync(mAcceptEventArgs))
                 {

@@ -133,8 +133,7 @@ namespace BeetleX
 
         private object DequeueSendMessage()
         {
-            object result;
-            if (mSendMessages.TryDequeue(out result))
+            if (mSendMessages.TryDequeue(out object result))
             {
                 System.Threading.Interlocked.Decrement(ref mCount);
             }
@@ -145,7 +144,6 @@ namespace BeetleX
         {
             try
             {
-
                 object data = DequeueSendMessage();
                 while (data != null)
                 {
@@ -171,6 +169,14 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
+                if (SendBufferPool is PrivateBufferPool sendPool)
+                {
+                    sendPool.Dispose();
+                }
+                if (ReceiveBufferPool is PrivateBufferPool receivePool)
+                {
+                    receivePool.Dispose();
+                }
             }
             catch
             {
@@ -192,10 +198,10 @@ namespace BeetleX
         public void SyncSSLData()
         {
             mBaseNetStream.SSLConfirmed = true;
-            mSslStream.SyncData(SslReveive);
+            mSslStream.SyncData(SslReceive);
         }
 
-        private void SslReveive()
+        private void SslReceive()
         {
             InvokeReceiveEvent();
         }
@@ -220,11 +226,8 @@ namespace BeetleX
             set;
         }
 
-        public double TimeOut
-        {
-            get;
-            set;
-        } = 999999999;
+
+        public double TimeOut { get; set; } = 999999999;
 
         public EndPoint RemoteEndPoint
         {
@@ -264,9 +267,8 @@ namespace BeetleX
 
         internal void ProcessSendMessages()
         {
-
             IBuffer[] items;
-            if (IsDisposed)
+            if (IsDisposed || mCount == 0)
                 return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
             {
@@ -414,8 +416,9 @@ namespace BeetleX
                 mBaseNetStream.SSL = true;
                 mSslStream = new SslStreamX(this.SendBufferPool, server.Options.Encoding,
                     server.Options.LittleEndian, mBaseNetStream, false);
-                mSslStream.BeginAuthenticateAsServer(listen.Certificate, new AsyncCallback(asyncCallback),
-                    new Tuple<TcpSession, SslStream>(this, this.mSslStream));
+
+                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, true, new AsyncCallback(asyncCallback),
+                     new Tuple<TcpSession, SslStream>(this, this.mSslStream));
             }
             catch (Exception e_)
             {
