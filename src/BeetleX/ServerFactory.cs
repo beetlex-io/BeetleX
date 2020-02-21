@@ -29,8 +29,6 @@ namespace BeetleX
             return CreateTcpServer(new HANDLER(), null, options);
         }
 
-
-
         public static CLIENT CreateClient<CLIENT>(string host, int port)
            where CLIENT : IClient, new()
         {

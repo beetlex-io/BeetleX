@@ -8,6 +8,7 @@ namespace BeetleX.EventArgs
     public class SessionEventArgs : ServerEventArgs
     {
         public ISession Session { get; internal set; }
-     
+
+      
     }
 }

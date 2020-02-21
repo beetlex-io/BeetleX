@@ -29,6 +29,8 @@ namespace BeetleX
 
         bool Open();
 
+        Action WriteLogo { get; set; }
+
         bool Pause();
 
         void Resume();

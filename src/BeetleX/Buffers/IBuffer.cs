@@ -71,7 +71,7 @@ namespace BeetleX.Buffers
 
         void Free();
 
-        IBufferPool Pool { get; set; }
+        BufferPool Pool { get; set; }
 
         bool TryWrite(Int16 value);
 
@@ -113,6 +113,7 @@ namespace BeetleX.Buffers
             set;
         }
 
+        Action<IBuffer> Completed { get; set; }
     }
 
     public class Buffer : IBuffer
@@ -173,7 +174,7 @@ namespace BeetleX.Buffers
 
         public IBuffer Next { get; set; }
 
-        public IBufferPool Pool { get; set; }
+        public BufferPool Pool { get; set; }
 
         public long ID => mID;
 
@@ -224,7 +225,6 @@ namespace BeetleX.Buffers
             }
             return false;
         }
-
         public Span<byte> GetSpan()
         {
             return mData.Span.Slice(mPostion, mFree);
@@ -282,6 +282,7 @@ namespace BeetleX.Buffers
             return result;
         }
 
+
         private int mUsing = 0;
 
         public void Reset()
@@ -293,6 +294,8 @@ namespace BeetleX.Buffers
             System.Threading.Interlocked.Exchange(ref mUsing, 1);
 
         }
+
+
         #region delete
 
         internal long mLastActiveTime;
@@ -301,7 +304,7 @@ namespace BeetleX.Buffers
         {
             get
             {
-                return (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 3600 * 1000 && mUsing == 1;
+                return mUsing == 1 && (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 1000 * 600;
             }
         }
 
@@ -575,6 +578,8 @@ namespace BeetleX.Buffers
 
         public int FreeSpace => mFree;
 
+        public Action<IBuffer> Completed { get; set; }
+
         public int From(System.Net.Sockets.Socket socket)
         {
             int result = 0;
@@ -658,7 +663,8 @@ namespace BeetleX.Buffers
                     while (next != null)
                     {
                         Last = next;
-                        next = buffer.Next;
+                        // next = buffer.Next;
+                        next = next.Next;
                     }
                 }
             }

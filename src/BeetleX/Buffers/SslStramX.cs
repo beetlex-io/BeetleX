@@ -60,7 +60,7 @@ namespace BeetleX.Buffers
 
         public bool AsyncDataStatus { get; set; }
 
-        public async void SyncData()
+        public async void SyncData(Action receive)
         {
             while (true)
             {
@@ -89,7 +89,12 @@ namespace BeetleX.Buffers
                     buffer?.Free();
                     break;
                 }
+                finally
+                {
+                    receive?.Invoke();
+                }
             }
+
         }
 
         protected override void Dispose(bool disposing)

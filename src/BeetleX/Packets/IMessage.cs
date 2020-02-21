@@ -11,5 +11,7 @@ namespace BeetleX.Packets
         void Load(IBinaryReader reader);
 
         void Save(IBinaryWriter writer);
-    } 
+    }
+
+   
 }

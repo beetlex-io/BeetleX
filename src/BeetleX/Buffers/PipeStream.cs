@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Buffers
 {
-    public class PipeStream : System.IO.Stream, IBinaryReader, IBinaryWriter, IDisposable
+    public partial class PipeStream : System.IO.Stream, IBinaryReader, IBinaryWriter, IDisposable
     {
         public PipeStream() : this(BufferPoolGroup.DefaultGroup.Next(), true, Encoding.UTF8)
         {
@@ -105,6 +105,8 @@ namespace BeetleX.Buffers
 
         public Stream Stream => this;
 
+        public IBuffer WriteFirstBuffer => mWriteFirstBuffer;
+
         private IBuffer GetReadBuffer()
         {
             if (mReadFirstBuffer == null)
@@ -172,8 +174,7 @@ namespace BeetleX.Buffers
             IBuffer result = mWriteFirstBuffer;
             mWriteFirstBuffer = null;
             mWriteLastBuffer = null;
-            mWriteLength = 0;
-            //System.Threading.Interlocked.Exchange(ref mWriteLength, 0);
+            System.Threading.Interlocked.Exchange(ref mWriteLength, 0);
             return result;
         }
 
@@ -182,8 +183,7 @@ namespace BeetleX.Buffers
             IBuffer result = mReadFirstBuffer;
             mReadFirstBuffer = null;
             mReadLastBuffer = null;
-            //System.Threading.Interlocked.Exchange(ref mLength, 0);
-            mLength = 0;
+            System.Threading.Interlocked.Exchange(ref mLength, 0);
             return result;
         }
 
@@ -211,6 +211,17 @@ namespace BeetleX.Buffers
                 {
                     int len = Read(readCompletionSource.Buffer, readCompletionSource.Offset, readCompletionSource.Count);
                     readCompletionSource.TrySetResult(len);
+                }
+                else
+
+                {
+                    if (mReadAsyncResult != null)
+                    {
+                        var result = mReadAsyncResult;
+                        mReadAsyncResult = null;
+                        result.IsCompleted = true;
+                        result.AsyncCallback(result);
+                    }
                 }
             }
 
@@ -338,58 +349,6 @@ namespace BeetleX.Buffers
             result.EofIndex = eofindex;
             result.End = null;
             return false;
-        }
-
-        public unsafe int IndexOf(byte[] eof,byte[] data)
-        {
-            int matchLength = eof.Length;
-            int bufferSize = data.Length;
-            int length;
-            Span<byte> eofBlock = stackalloc byte[matchLength];
-            for(int i=0;i< matchLength; i++)
-            {
-                eofBlock[i] = eof[i];
-            }
-            int count = 0;
-            if (eof == null || mLength < eof.Length)
-                return count;
-            int match = 0;
-            fixed(byte *dest = data)
-            {
-                byte* destData = dest;
-                IBuffer rbuffer = GetReadBuffer();
-                while(rbuffer !=null)
-                {
-                   fixed( byte * source = &rbuffer.Data[rbuffer.Postion])
-                    {
-                        if (count >= bufferSize)
-                            return 0;
-                        byte* sourceData = source;
-                        length = rbuffer.Length;
-                        for(int i=0;i< length; i++)
-                        {
-                            *destData = *sourceData;
-                            count++;
-                            if(eofBlock[match]==*sourceData)
-                            {
-                                match++;
-                            }
-                            else
-                            {
-                                match = 0;
-                            }
-                            if (match == matchLength)
-                            {
-                                return count;
-                            }
-                            sourceData++;
-                            destData++;                     
-                        }
-                    }
-                    rbuffer = GetReadBuffer();
-                }
-            }
-            return 0;
         }
 
         public IndexOfResult IndexOf(Byte[] eof)
@@ -550,18 +509,6 @@ namespace BeetleX.Buffers
             }
         }
 
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            if (!SSLConfirmed && SSL)
-            {
-                return base.WriteAsync(buffer, cancellationToken);
-            }
-            else
-            {
-                Write(buffer.Span);
-                return new ValueTask();
-            }
-        }
         #endregion
 
 
@@ -739,7 +686,7 @@ namespace BeetleX.Buffers
             return ReadString(len);
         }
 
-        public string ReadString(int length)
+        public unsafe string ReadString(int length)
         {
             if (length == 0)
                 return string.Empty;
@@ -754,8 +701,14 @@ namespace BeetleX.Buffers
                 {
                     data = rbuffer.Read(length);
                     ReadAdvance(length);
-                    var l = mDecoder.GetChars(data, charSpan, false);
-                    return new string(charSpan.Slice(0, l));
+                    fixed (byte* pdata = data)
+                    {
+                        fixed (char* pchar = charSpan)
+                        {
+                            var l = mDecoder.GetChars(pdata, data.Length, pchar, charSpan.Length, false);
+                            return new string(pchar, 0, l);
+                        }
+                    }
                 }
             }
             StringBuilder sb = new StringBuilder();
@@ -776,13 +729,19 @@ namespace BeetleX.Buffers
                 {
                     data = rbuffer.Read(freelen);
                 }
+
                 ReadAdvance(data.Length);
                 length -= data.Length;
-                var l = mDecoder.GetChars(data, charSpan, false);
-                if (l > 0)
+
+                fixed (byte* pdata = data)
                 {
-                    sb.Append(charSpan.Slice(0, l));
+                    fixed (char* pchar = charSpan)
+                    {
+                        var l = mDecoder.GetChars(pdata, data.Length, pchar, charSpan.Length, false);
+                        sb.Append(new string(pchar, 0, l));
+                    }
                 }
+
             }
 
             return sb.ToString();
@@ -1212,8 +1171,61 @@ namespace BeetleX.Buffers
 
         #region pipistream intersocket send receive methods
 
+        class ReadAsyncResult : IAsyncResult
+        {
+            public byte[] Buffer { get; set; }
+
+            public int Offset { get; set; }
+
+            public int Size { get; set; }
+
+            public object AsyncState { get; set; }
+
+            public WaitHandle AsyncWaitHandle => null;
+
+            public bool CompletedSynchronously
+            {
+                get; set;
+            }
+
+            public bool IsCompleted { get; set; }
+
+            public AsyncCallback AsyncCallback { get; set; }
+        }
+
+
+        private ReadAsyncResult mReadAsyncResult;
+
         public override IAsyncResult BeginRead(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
         {
+            if (SSLConfirmed && SSL)
+            {
+                if (Length > 0)
+                {
+                    var result = new ReadAsyncResult();
+                    result.AsyncState = state;
+                    result.CompletedSynchronously = true;
+                    result.Buffer = buffer;
+                    result.Offset = offset;
+                    result.Size = size;
+                    result.IsCompleted = true;
+                    return result;
+                }
+                else
+                {
+                    mReadAsyncResult = new ReadAsyncResult();
+                    mReadAsyncResult.AsyncState = state;
+                    mReadAsyncResult.CompletedSynchronously = false;
+                    mReadAsyncResult.Buffer = buffer;
+                    mReadAsyncResult.Offset = offset;
+                    mReadAsyncResult.Size = size;
+                    mReadAsyncResult.IsCompleted = false;
+                    mReadAsyncResult.AsyncCallback = callback;
+                    return mReadAsyncResult;
+
+                }
+            }
+
             if (buffer == null)
             {
                 throw new ArgumentNullException("buffer");
@@ -1237,6 +1249,12 @@ namespace BeetleX.Buffers
 
         public override int EndRead(IAsyncResult asyncResult)
         {
+            if (SSLConfirmed && SSL)
+            {
+                var result = asyncResult as ReadAsyncResult;
+                var len = Read(result.Buffer, result.Offset, result.Size);
+                return len;
+            }
             if (asyncResult == null)
             {
                 throw new ArgumentNullException("asyncResult");

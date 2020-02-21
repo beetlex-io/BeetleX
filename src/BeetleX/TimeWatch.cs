@@ -14,6 +14,11 @@ namespace BeetleX
 
         protected static readonly System.Diagnostics.Stopwatch mWatch;
 
+        public static double GetTotalMilliseconds()
+        {
+            return mWatch.Elapsed.TotalMilliseconds;
+        }
+
         public static long GetElapsedMilliseconds()
         {
             return mWatch.ElapsedMilliseconds;
