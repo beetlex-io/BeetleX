@@ -1,7 +1,7 @@
 # BeetleX
 high performance dotnet core socket tcp communication components support ssl
 ## Extended Components
-- [High performance and lightweight http and websocket server components](https://github.com/IKende/FastHttpApi)
+- [High performance lightweight http and websocket server components](https://github.com/IKende/FastHttpApi)
    
 - [High performance http and websocket gateway components](https://github.com/IKende/Bumblebee)
 
