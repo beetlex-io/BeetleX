@@ -1,18 +1,18 @@
 # BeetleX
 high performance dotnet core socket tcp communication components support ssl
 ## Extended Components
-- High performance and lightweight web api server components    
-    [https://github.com/IKende/FastHttpApi](https://github.com/IKende/FastHttpApi)
-- High performance webapi gateway components  
-  [https://github.com/IKende/Bumblebee](https://github.com/IKende/Bumblebee)
-- High-performance async/non-blocking  redis client components for dotnet core    
-  [https://github.com/IKende/BeetleX.Redis](https://github.com/IKende/BeetleX.Redis)
-- High performance remote interface invoke(RPC) communication components,implemente millions RPS remote interface method calls           
-  [https://github.com/IKende/XRPC](https://github.com/IKende/XRPC)
-- Http and websocket clients                     
-  [https://github.com/IKende/HttpClients](https://github.com/IKende/HttpClients)
+- [High performance and lightweight http and websocket server components](https://github.com/IKende/FastHttpApi)
+   
+- [High performance http and websocket gateway components](https://github.com/IKende/Bumblebee)
+
+- [High-performance async/non-blocking  redis client components](https://github.com/IKende/BeetleX.Redis)   
+  
+- [High performance remote interface invoke(RPC) communication components](https://github.com/IKende/XRPC)
+
+- [Http and websocket clients](https://github.com/IKende/HttpClients)
+ 
 ## samples
-[https://github.com/IKende/BeetleX-Samples](https://github.com/IKende/BeetleX-Samples)
+[BeetleX's tcp, http, websocket, xprc ... Samples](https://github.com/IKende/BeetleX-Samples)
 ### Server
 ```csharp
     class Program : ServerHandlerBase
