@@ -13,73 +13,18 @@ high performance dotnet core socket tcp communication components,  support TCP, 
  
 ## samples
 [BeetleX's tcp, http, websocket, xprc ... Samples](https://github.com/IKende/BeetleX-Samples)
-### Server
-```csharp
-    class Program : ServerHandlerBase
-    {
-        private static IServer server;
 
-        public static void Main(string[] args)
-        {
-           
-            server = SocketFactory.CreateTcpServer<Program>();
-            //server.Options.DefaultListen.CertificateFile = "text.pfx";
-            //server.Options.DefaultListen.SSL = true;
-            //server.Options.DefaultListen.CertificatePassword = "123456";
-            server.Open();
-            Console.Write(server);
-            Console.Read();
-        }
-        public override void SessionReceive(IServer server, SessionReceiveEventArgs e)
-        {
-            var pipeStream = e.Stream.ToPipeStream();
-            string name = pipeStream.ReadLine();
-            Console.WriteLine(name);
-            pipeStream.WriteLine("hello " + name);
-            e.Session.Stream.Flush();
-            base.SessionReceive(server, e);
-        }
-    }
-```
-### Client
-```csharp
-     TcpClient client = SocketFactory.CreateClient<TcpClient>("127.0.0.1", 9090);
-     //ssl
-     //TcpClient client = SocketFactory.CreateSslClient<TcpClient>("127.0.0.1", 9090, "localhost");
-     while (true)
-     {
-         Console.Write("Enter Name:");
-         var line = Console.ReadLine();
-         client.Stream.ToPipeStream().WriteLine(line);
-         client.Stream.Flush();
-         var reader = client.Read();
-         line = reader.ToPipeStream().ReadLine();
-         Console.WriteLine(line);
-     }
-```
-### Async client
-```csharp
+## Framework benchmarks 
+[https://tfb-status.techempower.com/](https://www.techempower.com/benchmarks/#section=test&runid=71407829-eaa7-4b5d-a6a2-54b8ba3b2d3f&hw=ph&test=json&p=zik0zj-zik0zj-zijocf-zik0zj-v)
+### Json
+![image](https://user-images.githubusercontent.com/2564178/77252513-3c89ac00-6c8f-11ea-8497-2fe9179089e7.png)
 
-     AsyncTcpClient client = SocketFactory.CreateClient<AsyncTcpClient>("127.0.0.1", 9090);
-     //SSL
-     //AsyncTcpClient client = SocketFactory.CreateSslClient<AsyncTcpClient>("127.0.0.1", 9090, "serviceName");
-     Client.AutoReceive = false;
-     while (true)
-     {
-         var line = Console.ReadLine();
-         var result = await Client.ReceiveFrom(s => s.WriteLine(line));
-         //or
-         //Client.Send(s => s.WriteLine(line));
-         //result = await Client.Receive();
-         Console.WriteLine(result.ReadLine());
-     }
+### Single query
+![image](https://user-images.githubusercontent.com/2564178/77252531-53300300-6c8f-11ea-97b8-368ad7f971e2.png)
 
-```
+### Fortunes
+![image](https://user-images.githubusercontent.com/2564178/77252541-6511a600-6c8f-11ea-912a-9a9beefc6541.png)
 
-## Framework benchmarks last test status
-https://tfb-status.techempower.com/
-### 2019-08-01 result for .net
-![](https://github.com/IKende/FastHttpApi/blob/master/images/20190801.png?raw=true)
 ### Performance testing
 Server:E3-1230V2
 Bandwidth：10Gb
