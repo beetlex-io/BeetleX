@@ -108,7 +108,8 @@ namespace BeetleX.Clients
                 throw new BXException("get host's address error");
             foreach (IPAddress item in ips)
             {
-                if (item.AddressFamily == AddressFamily.InterNetwork)
+                if (item.AddressFamily == AddressFamily.InterNetwork
+                   || item.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     mIPAddress = item;
                     break;
@@ -222,7 +223,7 @@ namespace BeetleX.Clients
         private void OnConnect()
         {
 
-            mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             if (LocalEndPoint != null)
                 mSocket.Bind(LocalEndPoint);
             mSocket.Connect(mIPAddress, mPort);
@@ -572,7 +573,8 @@ namespace BeetleX.Clients
                 throw new BXException("get host's address error");
             foreach (IPAddress item in ips)
             {
-                if (item.AddressFamily == AddressFamily.InterNetwork)
+                if (item.AddressFamily == AddressFamily.InterNetwork
+                    || item.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     mIPAddress = item;
                     break;
@@ -968,7 +970,7 @@ namespace BeetleX.Clients
                         mBaseNetworkStream = null;
                         mSslStream?.Dispose();
                         mSslStream = null;
-                        mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                         if (LocalEndPoint != null)
                             mSocket.Bind(LocalEndPoint);
                         mSocket.Connect(mIPAddress, mPort);
