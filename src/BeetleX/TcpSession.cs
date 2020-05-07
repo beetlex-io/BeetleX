@@ -154,10 +154,10 @@ namespace BeetleX
                     }
                     data = DequeueSendMessage();
                 }
-                if (SendEventArgs != null)
-                    SendEventArgs.Dispose();
-                if (ReceiveEventArgs != null)
-                    ReceiveEventArgs.Dispose();
+                SendEventArgs?.Dispose();
+                SendEventArgs?.Clear();
+                ReceiveEventArgs?.Dispose();
+                ReceiveEventArgs?.Clear();
                 mReceiveArgs.Server = null;
                 mReceiveArgs.Session = null;
                 mBaseNetStream.Dispose();
@@ -169,14 +169,6 @@ namespace BeetleX
                 if (Packet != null)
                     Packet.Dispose();
                 mProperties.Clear();
-                if (SendBufferPool is PrivateBufferPool sendPool)
-                {
-                    sendPool.Dispose();
-                }
-                if (ReceiveBufferPool is PrivateBufferPool receivePool)
-                {
-                    receivePool.Dispose();
-                }
             }
             catch
             {
@@ -243,25 +235,37 @@ namespace BeetleX
 
         internal void InvokeReceiveEvent()
         {
-            if (!mIsDisposed)
+            try
             {
-                if (SSL)
+                if (!mIsDisposed)
                 {
-                    if (mSslStream.SyncDataError != null)
+                    if (SSL)
                     {
-                        if (Server.EnableLog(EventArgs.LogType.Warring))
+                        Exception error = mSslStream.SyncDataError;
+                        if (error != null)
                         {
-                            Server.Log(EventArgs.LogType.Warring, null,
-                                $"{RemoteEndPoint} sync SslStream date error {mSslStream.SyncDataError.Message}@{mSslStream.SyncDataError.StackTrace}");
+                            if (Server.EnableLog(EventArgs.LogType.Warring))
+                            {
+                                Server.Log(EventArgs.LogType.Warring, null,
+                                    $"{RemoteEndPoint} sync SslStream date error {error.Message}@{error.StackTrace}");
+                            }
+                            this.Dispose();
+                            return;
                         }
-                        this.Dispose();
-                        return;
                     }
+                    mReceiveArgs.Server = this.Server;
+                    mReceiveArgs.Session = this;
+                    mReceiveArgs.Stream = this.Stream;
+                    Server.SessionReceive(mReceiveArgs);
                 }
-                mReceiveArgs.Server = this.Server;
-                mReceiveArgs.Session = this;
-                mReceiveArgs.Stream = this.Stream;
-                Server.SessionReceive(mReceiveArgs);
+            }
+            catch(Exception e_)
+            {
+                if (Server.EnableLog(EventArgs.LogType.Warring))
+                {
+                    Server.Log(EventArgs.LogType.Warring, null,
+                        $"{RemoteEndPoint} invoke receive event error  {e_.Message}@{e_.StackTrace}");
+                }
             }
         }
 

@@ -5,11 +5,11 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.4.9.6</AssemblyVersion>
-    <FileVersion>1.4.9.6</FileVersion>
-    <Version>1.4.9.6</Version>
+    <AssemblyVersion>1.5.1.6</AssemblyVersion>
+    <FileVersion>1.5.1.6</FileVersion>
+    <Version>1.5.1.6</Version>
     <Description>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</Description>
-    <Copyright>Copyright © beetlex.io 2019-2020 email:henryfan@msn.com</Copyright>
+    <Copyright>Copyright © 2019-2020  beetlex.io</Copyright>
     <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/IKende/FastHttpApi/blob/master/LICENSE</PackageLicenseUrl>
     <Company>beetlex.io</Company>
@@ -17,6 +17,8 @@
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile>beetlex.pfx</AssemblyOriginatorKeyFile>
     <PackageReleaseNotes>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</PackageReleaseNotes>
+    <PackageIconUrl></PackageIconUrl>
+    <PackageIcon>beetlex200.png</PackageIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -33,6 +35,10 @@
     <Compile Remove="Blocks\**" />
     <EmbeddedResource Remove="Blocks\**" />
     <None Remove="Blocks\**" />
+    <None Include="..\..\..\..\..\beetlex200.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

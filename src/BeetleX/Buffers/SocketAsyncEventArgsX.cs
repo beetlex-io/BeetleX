@@ -24,6 +24,11 @@ namespace BeetleX.Buffers
             internal set;
         }
 
+        public void Clear()
+        {
+            this.BufferX = null;
+        }
+
         public bool IsReceive
         {
             get;

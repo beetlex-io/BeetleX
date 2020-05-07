@@ -104,7 +104,7 @@ namespace BeetleX.Buffers
                     {
                         if (mDefaultGroup == null)
                         {
-                            int count =4;
+                            int count = 4;
                             int poolSize = BufferPool.POOL_SIZE / count;
                             int poolMaxSize = BufferPool.POOL_MAX_SIZE / count;
                             mDefaultGroup = new BufferPoolGroup(BufferPool.BUFFER_SIZE, poolSize, poolMaxSize, count);
@@ -118,6 +118,13 @@ namespace BeetleX.Buffers
 
     public class BufferPool : IBufferPool
     {
+
+
+        public static int POOL_CLEAR_TIME = 60;
+
+        public static int BUFFER_FREE_TIMEOUT = 600;
+
+        public static int POOL_MINI_SIZE = 1000;
 
         public static int BUFFER_SIZE = 1024 * 4;
 
@@ -143,6 +150,14 @@ namespace BeetleX.Buffers
 
         private int mMaxCount;
 
+        private int mFreeStatusCount = 0;
+
+        internal int FreeStatusCount => System.Threading.Interlocked.Add(ref mFreeStatusCount, 0);
+
+        private long mTimeCount = 0;
+
+        public static Action<IBuffer> BufferRemove { get; set; }
+
         private void Init(int size, int count, int maxCount)
         {
             mMaxCount = maxCount;
@@ -153,7 +168,7 @@ namespace BeetleX.Buffers
                 item = CreateBuffer();
                 mPool.Push(item);
             }
-            mCleanTime = new Timer(OnClean, null, 1000 * 600, 1000 * 600);
+            mCleanTime = new Timer(OnClean, null, 1000 * 10, 1000 * 10);
         }
 
         private System.Threading.Timer mCleanTime;
@@ -162,19 +177,31 @@ namespace BeetleX.Buffers
         {
             try
             {
-                lock (linkBuffers)
+                if (Count > POOL_MINI_SIZE)
                 {
-                    var item = linkBuffers.First;
-                    while (item != null)
+                    System.Threading.Interlocked.Increment(ref mFreeStatusCount);
+                }
+                else
+                {
+                    System.Threading.Interlocked.Exchange(ref mFreeStatusCount, 0);
+                }
+                mTimeCount += 1;
+                if (mTimeCount % POOL_CLEAR_TIME == 0)
+                {
+                    lock (linkBuffers)
                     {
-                        var nitem = item.Next;
-                        if (item.Value.Unused)
+                        var item = linkBuffers.First;
+                        while (item != null)
                         {
-                            item.Value.Delete();
-                            linkBuffers.Remove(item);
-                            Interlocked.Decrement(ref mCount);
+                            var nitem = item.Next;
+                            if (item.Value.Unused)
+                            {
+                                item.Value.Delete();
+                                linkBuffers.Remove(item);
+                                BufferRemove?.Invoke(item.Value);
+                            }
+                            item = nitem;
                         }
-                        item = nitem;
                     }
                 }
             }
@@ -188,19 +215,20 @@ namespace BeetleX.Buffers
         {
             get
             {
-                return mPool.Count;
+                return System.Threading.Interlocked.Add(ref mCount, 0);
             }
         }
 
         private Buffer CreateBuffer()
         {
-            if (mMaxCount > 0 && mCount > mMaxCount)
+            if (mMaxCount > 0 && linkBuffers.Count > mMaxCount)
             {
                 throw new BXException("Create buffer error, maximum number of buffer pools!");
             }
             Interlocked.Increment(ref mCount);
             Buffer item = new Buffer(mSize);
             item.Pool = this;
+            BufferMonitor.Create(mSize);
             lock (linkBuffers)
                 linkBuffers.AddLast(item);
             return item;
@@ -210,19 +238,20 @@ namespace BeetleX.Buffers
 
         public IBuffer Pop()
         {
-
             IBuffer item;
             if (!mPool.TryPop(out item))
             {
                 item = CreateBuffer();
             }
             item.Reset();
+            Interlocked.Decrement(ref mCount);
             return item;
 
         }
 
         public void Push(IBuffer item)
         {
+            Interlocked.Increment(ref mCount);
             mPool.Push(item);
         }
 
@@ -259,7 +288,6 @@ namespace BeetleX.Buffers
             }
         }
 
-
         public void Dispose()
         {
 
@@ -270,110 +298,32 @@ namespace BeetleX.Buffers
 
     }
 
-    public class PrivateBufferPool : IBufferPool
+
+    public class BufferMonitor
     {
-        private Stack<IBuffer> mPool = new Stack<IBuffer>();
 
-        private int mCount;
+        public static long CreateCount => mCreateCount;
 
-        private int mMaxCount;
+        public static long FreeCount => mFreeCount;
 
-        public int Count => mCount;
+        public static long Size => mSize;
 
-        private int mSize;
+        private static int mCreateCount;
 
-        private LinkedList<Buffer> linkBuffers = new LinkedList<Buffer>();
+        private static long mSize;
 
-        public PrivateBufferPool(int bufferSize, int MaxSize)
+        private static long mFreeCount;
+
+        public static void Create(int size)
         {
-            mSize = bufferSize;
-            mMaxCount = MaxSize / bufferSize + 1;
-            var item = CreateBuffer();
-            Push(item);
-            mCleanTime = new Timer(OnClean, null, 1000 * 1800, 1000 * 1800);
+            System.Threading.Interlocked.Increment(ref mCreateCount);
+            System.Threading.Interlocked.Add(ref mSize, size);
         }
 
-        private System.Threading.Timer mCleanTime;
-
-        private void OnClean(object state)
+        public static void Free(int size)
         {
-            try
-            {
-                lock (linkBuffers)
-                {
-                    var item = linkBuffers.First;
-                    while (item != null)
-                    {
-                        var nitem = item.Next;
-                        if (item.Value.Unused)
-                        {
-                            item.Value.Delete();
-                            linkBuffers.Remove(item);
-                            Interlocked.Decrement(ref mCount);
-                        }
-                        item = nitem;
-                    }
-                }
-            }
-            catch (Exception e_)
-            {
-
-            }
-        }
-
-        public void Dispose()
-        {
-            if (mCleanTime != null)
-                mCleanTime.Dispose();
-            lock (linkBuffers)
-                linkBuffers.Clear();
-            while (true)
-            {
-                if (mPool.TryPop(out IBuffer buffer))
-                {
-                    buffer.Pool = null;
-                    buffer.Next = null;
-                    if (buffer is Buffer memory)
-                    {
-                        if (memory.GCHandle.IsAllocated)
-                        {
-                            memory.GCHandle.Free();
-                        }
-                    }
-                }
-                else
-                    break;
-            }
-        }
-
-        private Buffer CreateBuffer()
-        {
-            if (mMaxCount > 0 && mCount > mMaxCount)
-            {
-                throw new BXException("Create buffer error, maximum number of buffer pools!");
-            }
-            Interlocked.Increment(ref mCount);
-            Buffer item = new Buffer(mSize);
-            item.Pool = this;
-            lock (linkBuffers)
-                linkBuffers.AddLast(item);
-            return item;
-        }
-
-        public IBuffer Pop()
-        {
-            if (!mPool.TryPop(out IBuffer item))
-            {
-                item = CreateBuffer();
-            }
-            item.Reset();
-            return item;
-        }
-
-        public void Push(IBuffer item)
-        {
-            mPool.Push(item);
+            System.Threading.Interlocked.Increment(ref mFreeCount);
+            System.Threading.Interlocked.Add(ref mSize, -size);
         }
     }
-
 }

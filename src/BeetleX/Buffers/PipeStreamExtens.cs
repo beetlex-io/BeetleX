@@ -71,6 +71,16 @@ namespace BeetleX.Buffers
 
     public partial class PipeStream
     {
+        public int ReadTo(StringBuilder sb, int count, Encoding encoding = null)
+        {
+            using (var block = ReadChars(count, encoding))
+            {
+                sb.Append(block.Data, block.Offset, block.Count);
+                block.Dispose();
+                return block.Count;
+            }
+        }
+
         public bool TryReadLine(out CharBlock value, Encoding encoding, bool returnEof = false)
         {
 
@@ -203,7 +213,7 @@ namespace BeetleX
             int index = span.IndexOf(spitChar);
             if (index > 0)
             {
-                item= span.Slice(0, index);
+                item = span.Slice(0, index);
                 return span.Slice(index + 1);
             }
             return span;
@@ -215,7 +225,7 @@ namespace BeetleX
             int index = span.LastIndexOf(spitChar);
             if (index > 0)
             {
-                item= span.Slice(index + 1);
+                item = span.Slice(index + 1);
                 return span.Slice(0, index);
             }
             return span;

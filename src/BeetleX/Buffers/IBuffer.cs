@@ -285,6 +285,8 @@ namespace BeetleX.Buffers
 
         private int mUsing = 0;
 
+        private bool mDeleteTag = false;
+
         public void Reset()
         {
             mLength = 0;
@@ -302,14 +304,15 @@ namespace BeetleX.Buffers
         {
             get
             {
-                return mUsing == 1 && (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 1000 * 600;
+                return mDeleteTag|| (mUsing == 1 && (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 1000 * BufferPool.BUFFER_FREE_TIMEOUT);
             }
         }
 
         internal void Delete()
         {
-            if (System.Threading.Interlocked.CompareExchange(ref mUsing, -1, 1) == 1)
+            if (mDeleteTag || (System.Threading.Interlocked.CompareExchange(ref mUsing, -1, 1) == 1))
             {
+                BufferMonitor.Free(mSize);
                 if (GCHandle.IsAllocated)
                 {
                     GCHandle.Free();
@@ -326,8 +329,16 @@ namespace BeetleX.Buffers
             {
                 if (Pool != null)
                 {
-                    Pool.Push(this);
-                    mLastActiveTime = TimeWatch.GetElapsedMilliseconds();
+                    var pool = Pool as BufferPool;
+                    if (pool.FreeStatusCount > 10 && pool.Count > BufferPool.POOL_MINI_SIZE)
+                    {
+                        mDeleteTag = true;
+                    }
+                    else
+                    {
+                        Pool.Push(this);
+                        mLastActiveTime = TimeWatch.GetElapsedMilliseconds();
+                    }
                 }
             }
 

@@ -7,6 +7,7 @@ using BeetleX.Buffers;
 using System.Threading.Tasks;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
+using System.Security.Authentication;
 
 namespace BeetleX.Clients
 {
@@ -109,7 +110,7 @@ namespace BeetleX.Clients
             foreach (IPAddress item in ips)
             {
                 if (item.AddressFamily == AddressFamily.InterNetwork
-                   || item.AddressFamily == AddressFamily.InterNetworkV6)
+                    || item.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     mIPAddress = item;
                     break;
@@ -574,7 +575,7 @@ namespace BeetleX.Clients
             foreach (IPAddress item in ips)
             {
                 if (item.AddressFamily == AddressFamily.InterNetwork
-                    || item.AddressFamily == AddressFamily.InterNetworkV6)
+                     || item.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     mIPAddress = item;
                     break;
@@ -659,8 +660,10 @@ namespace BeetleX.Clients
                         TcpClient.CloseSocket(mSocket);
                         mSocket = null;
                     }
-                    mReceiveEventArgs?.Dispose();
+                    mReceiveEventArgs?.Clear();
+                    mReceiveEventArgs?.Dispose();                        
                     mReceiveEventArgs = null;
+                    mSendEventArgs?.Clear();
                     mSendEventArgs?.Dispose();
                     mSendEventArgs = null;
                     mProperties.Clear();
@@ -714,9 +717,10 @@ namespace BeetleX.Clients
         }
         private void OnReceive()
         {
-            if (SSL && mSslStream.SyncDataError != null)
+            var error = mSslStream?.SyncDataError;
+            if (SSL && error != null)
             {
-                ProcessError(mSslStream.SyncDataError, $"sync SslStream data error {mSslStream.SyncDataError.Message}");
+                ProcessError(error, $"sync SslStream data error {error.Message}@{error.StackTrace}");
                 DisConnect();
                 return;
             }
@@ -775,7 +779,7 @@ namespace BeetleX.Clients
                 }
                 else
                 {
-                    ex.BufferX.Free();
+                    ex.BufferX?.Free();
                     tcpclient.DisConnect();
                     tcpclient.ProcessError(new SocketException((int)e.SocketError), $"Receive error {e.SocketError} BytesTransferred {e.BytesTransferred}");
 
@@ -1023,10 +1027,15 @@ namespace BeetleX.Clients
             }
             return mConnected;
         }
+        public SslProtocols? SslProtocols { get; set; } = System.Security.Authentication.SslProtocols.Tls11 | System.Security.Authentication.SslProtocols.Tls12;
 
         protected virtual void OnSslAuthenticate(SslStream sslStream)
         {
-            var task = sslStream.AuthenticateAsClientAsync(SslServiceName);
+            Task task;
+            if (SslProtocols == null)
+                task = sslStream.AuthenticateAsClientAsync(SslServiceName);
+            else
+                task = sslStream.AuthenticateAsClientAsync(SslServiceName, null, SslProtocols.Value, false);
             task.Wait();
         }
 

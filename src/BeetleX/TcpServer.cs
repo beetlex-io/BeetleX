@@ -292,9 +292,19 @@ namespace BeetleX
         {
             AssemblyCopyrightAttribute productAttr = typeof(BeetleX.BXException).Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>();
             var logo = "\r\n";
-            logo += "*******************************************************************************\r\n";
-            logo += " BeetleX tcp services framework \r\n";
-            
+            logo += " -----------------------------------------------------------------------------\r\n";
+            logo +=
+@"          ____                  _     _         __   __
+         |  _ \                | |   | |        \ \ / /
+         | |_) |   ___    ___  | |_  | |   ___   \ V / 
+         |  _ <   / _ \  / _ \ | __| | |  / _ \   > <  
+         | |_) | |  __/ |  __/ | |_  | | |  __/  / . \ 
+         |____/   \___|  \___|  \__| |_|  \___| /_/ \_\ 
+
+                                            tcp framework   
+
+";
+            logo += " -----------------------------------------------------------------------------\r\n";
             logo += $" {productAttr.Copyright}\r\n";
             logo += $" ServerGC [{GCSettings.IsServerGC}]\r\n";
             logo += $" Version  [{typeof(BeetleX.BXException).Assembly.GetName().Version}]\r\n";
@@ -303,7 +313,7 @@ namespace BeetleX
             {
                 logo += $" {item}\r\n";
             }
-            logo += "*******************************************************************************\r\n";
+            logo +=" -----------------------------------------------------------------------------\r\n";
             Log(LogType.Info, null, logo);
         }
 
@@ -358,16 +368,8 @@ namespace BeetleX
             session.Server = this;
             session.Host = e.Listen.Host;
             session.Port = e.Listen.Port;
-            if (Options.PrivateBufferPool)
-            {
-                session.ReceiveBufferPool = new PrivateBufferPool(Options.BufferSize, Options.PrivateBufferPoolSize);
-                session.SendBufferPool = new PrivateBufferPool(Options.BufferSize, Options.PrivateBufferPoolSize);
-            }
-            else
-            {
-                session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
-                session.SendBufferPool = this.SendBufferPool.Next();
-            }
+            session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
+            session.SendBufferPool = this.SendBufferPool.Next();
             session.SSL = e.Listen.SSL;
             session.Initialization(this, null);
             session.SendEventArgs.Completed += IO_Completed;
@@ -545,7 +547,7 @@ namespace BeetleX
                 }
                 else
                 {
-                    ex.BufferX.Free();
+                    ex.BufferX?.Free();
                     if (EnableLog(LogType.Debug))
                         Log(LogType.Debug, session, $"{session.RemoteEndPoint} receive close error {e.SocketError} receive:{e.BytesTransferred}");
                     session.Dispose();
@@ -655,7 +657,8 @@ namespace BeetleX
 
         public void SessionReceive(SessionReceiveEventArgs e)
         {
-
+            if (e.Session == null || e.Session.IsDisposed)
+                return;
             if (e.Session.Packet != null)
             {
                 try

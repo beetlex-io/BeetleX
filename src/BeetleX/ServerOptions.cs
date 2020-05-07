@@ -29,10 +29,9 @@ namespace BeetleX
             if (threads == 0)
                 threads = 1;
             IOQueues = Math.Min(threads, 16);
-            BufferPoolGroups = Environment.ProcessorCount;
+            BufferPoolGroups =4;
 
         }
-
 
         public int MaxWaitMessages { get; set; } = 0;
 
@@ -117,8 +116,6 @@ namespace BeetleX
         public int MaxAcceptQueue { get; set; }
 
         public bool ExecutionContextEnabled { get; set; }
-
-        public bool PrivateBufferPool { get; set; } = false;
 
         public int PrivateBufferPoolSize { get; set; } = 1024 * 1024;
 
