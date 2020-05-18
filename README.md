@@ -1,5 +1,10 @@
 # BeetleX
 high performance dotnet core socket tcp communication components,  support TCP, SSL, HTTP, HTTPS, WebSocket, RPC, Redis protocols ... and 1M connections problem solution
+
+
+<a href="https://www.nuget.org/packages/BeetleX/" target="_blank"> <img src="https://img.shields.io/nuget/vpre/beetlex?label=BeetleX"> 
+							  <img src="https://img.shields.io/nuget/dt/BeetleX">
+							  </a>
 ## Extended Components
 - [High performance lightweight http and websocket server components](https://github.com/IKende/FastHttpApi)
    
