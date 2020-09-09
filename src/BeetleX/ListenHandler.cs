@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace BeetleX
         public string Host { get; set; }
 
         public string CertificateFile { get; set; }
+
+        public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12;
 
         public string CertificatePassword { get; set; }
 
@@ -126,29 +129,39 @@ namespace BeetleX
             }
         }
 
+        private int mAccetpError = 0;
+
         private void OnSyncAccept()
         {
-            try
+            while (true)
             {
-                while (true)
+                try
                 {
+                    while (Server.Status == ServerStatus.Stop)
+                        System.Threading.Thread.Sleep(500);
                     var acceptSocket = Socket.Accept();
                     AcceptSocketInfo item = new AcceptSocketInfo();
                     item.Socket = acceptSocket;
                     item.Listen = this;
                     mAcceptCallBack(item);
                 }
-            }
-            catch (Exception e_)
-            {
-                Error = e_;
-                if (Server.EnableLog(EventArgs.LogType.Error))
+                catch (Exception e_)
                 {
-                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept error {e_.Message}|{e_.StackTrace}!");
-                }
-                if (Server.EnableLog(EventArgs.LogType.Warring))
-                {
-                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
+                    Error = e_;
+                    mAccetpError++;
+                    if (Server.EnableLog(EventArgs.LogType.Error))
+                    {
+                        Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept error {e_.Message}|{e_.StackTrace}!");
+                    }
+                    if (mAccetpError >= 10)
+                    {
+                        if (Server.EnableLog(EventArgs.LogType.Warring))
+                        {
+                            Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
+                        }
+                        Server.Status = ServerStatus.Error;
+                        break;
+                    }
                 }
             }
         }
@@ -168,6 +181,7 @@ namespace BeetleX
                     item.Listen = this;
                     e.AcceptSocket = null;
                     mAcceptCallBack(item);
+                    mAccetpError = 0;
                 }
                 else
                 {
@@ -198,19 +212,19 @@ namespace BeetleX
             }
         }
 
-
-
         private int mAsyncAccepts = 0;
 
         private void OnAsyncAccept()
         {
+        START_ACCEPT:
             if (Server.EnableLog(EventArgs.LogType.Debug))
             {
                 Server.Log(EventArgs.LogType.Debug, null, $"{Host}@{Port} begin accept");
             }
             try
             {
-
+                while (Server.Status == ServerStatus.Stop)
+                    System.Threading.Thread.Sleep(500);
                 mAcceptEventArgs.AcceptSocket = null;
                 if (!Socket.AcceptAsync(mAcceptEventArgs))
                 {
@@ -221,24 +235,32 @@ namespace BeetleX
                 {
                     mAsyncAccepts = 0;
                 }
-
+                mAccetpError = 0;
             }
             catch (Exception e_)
             {
+                Error = e_;
+                mAccetpError++;
                 if (Server.EnableLog(EventArgs.LogType.Error))
                 {
                     Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept error {e_.Message}|{e_.StackTrace}!");
                 }
-                if (Server.EnableLog(EventArgs.LogType.Warring))
+                if (mAccetpError >= 10)
                 {
-                    Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
+                    if (Server.EnableLog(EventArgs.LogType.Warring))
+                    {
+                        Server.Log(EventArgs.LogType.Error, null, $"{Host}@{Port} accept stoped!");
+                    }
+                    Server.Status = ServerStatus.Error;
                 }
+                else
+                    goto START_ACCEPT;
             }
         }
 
         public override string ToString()
         {
-            return $"Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : "error")}]";
+            return $"Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
         }
 
         public void Dispose()

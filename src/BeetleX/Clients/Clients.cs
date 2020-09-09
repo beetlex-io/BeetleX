@@ -267,9 +267,17 @@ namespace BeetleX.Clients
                 this.Connected?.Invoke(this);
         }
 
+        public SslProtocols? SslProtocols { get; set; } = System.Security.Authentication.SslProtocols.Tls11 | System.Security.Authentication.SslProtocols.Tls12;
+
+        public X509CertificateCollection CertificateCollection { get; private set; } = new X509CertificateCollection();
+
         protected virtual void OnSslAuthenticate(SslStream sslStream)
         {
-            var task = sslStream.AuthenticateAsClientAsync(SslServiceName);
+            Task task;
+            if (SslProtocols == null)
+                SslProtocols = System.Security.Authentication.SslProtocols.Tls | System.Security.Authentication.SslProtocols.Tls11 |
+                     System.Security.Authentication.SslProtocols.Tls12;
+            task = sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
             task.Wait();
         }
 
@@ -621,9 +629,9 @@ namespace BeetleX.Clients
 
         private SslStreamX mSslStream = null;
 
-        private AwaitObject awaitPipeStream = new AwaitObject();
+        //private AwaitObject awaitPipeStream = new AwaitObject();
 
-        private AwaitObject mReadMessageAwait = new AwaitObject();
+        //private AwaitObject mReadMessageAwait = new AwaitObject();
 
         private int mPort;
 
@@ -635,10 +643,10 @@ namespace BeetleX.Clients
             e.Message = message;
             try
             {
-                if (awaitPipeStream.Pending)
-                    awaitPipeStream.Error(e_);
-                if (mReadMessageAwait.Pending)
-                    mReadMessageAwait.Error(e_);
+                //if (awaitPipeStream.Pending)
+                //    awaitPipeStream.Error(e_);
+                //if (mReadMessageAwait.Pending)
+                //    mReadMessageAwait.Error(e_);
                 ClientError?.Invoke(this, e);
             }
             catch
@@ -661,7 +669,7 @@ namespace BeetleX.Clients
                         mSocket = null;
                     }
                     mReceiveEventArgs?.Clear();
-                    mReceiveEventArgs?.Dispose();                        
+                    mReceiveEventArgs?.Dispose();
                     mReceiveEventArgs = null;
                     mSendEventArgs?.Clear();
                     mSendEventArgs?.Dispose();
@@ -692,14 +700,14 @@ namespace BeetleX.Clients
                 {
                 }
             }
-            if (awaitPipeStream.Pending)
-            {
-                awaitPipeStream.Error(new SocketException((int)SocketError.ConnectionAborted));
-            }
-            if (mReadMessageAwait.Pending)
-            {
-                mReadMessageAwait.Error(new SocketException((int)SocketError.ConnectionAborted));
-            }
+            //if (awaitPipeStream.Pending)
+            //{
+            //    awaitPipeStream.Error(new SocketException((int)SocketError.ConnectionAborted));
+            //}
+            //if (mReadMessageAwait.Pending)
+            //{
+            //    mReadMessageAwait.Error(new SocketException((int)SocketError.ConnectionAborted));
+            //}
         }
 
         private static void IO_Completed(object sender, SocketAsyncEventArgs e)
@@ -740,9 +748,9 @@ namespace BeetleX.Clients
                 try
                 {
                     mReceiveArgs.Stream = this.Stream;
-                    if (awaitPipeStream.Pending)
-                        awaitPipeStream.Success(this.Stream.ToPipeStream());
-                    else
+                    //if (awaitPipeStream.Pending)
+                    //    awaitPipeStream.Success(this.Stream.ToPipeStream());
+                    //else
                         DataReceive?.Invoke(this, mReceiveArgs);
 
                 }
@@ -918,45 +926,45 @@ namespace BeetleX.Clients
             return false;
         }
 
-        public AwaitObject ReceiveMessage()
-        {
-            mReadMessageAwait.Reset();
-            bool isconnect;
-            Connect(out isconnect);
-            if (Packet == null)
-                ProcessError(new BXException("packet is empty be cannot receive messages!"), "packet is empty be cannot receive messages");
-            if (!AutoReceive)
-                BeginReceive();
-            return mReadMessageAwait;
-        }
+        //public AwaitObject ReceiveMessage()
+        //{
+        //    mReadMessageAwait.Reset();
+        //    bool isconnect;
+        //    Connect(out isconnect);
+        //    if (Packet == null)
+        //        ProcessError(new BXException("packet is empty be cannot receive messages!"), "packet is empty be cannot receive messages");
+        //    if (!AutoReceive)
+        //        BeginReceive();
+        //    return mReadMessageAwait;
+        //}
 
-        public AwaitStruct<PipeStream> ReceiveFrom(Action<PipeStream> writeHandler)
-        {
-            var result = Receive();
-            if (writeHandler != null)
-            {
-                PipeStream stream = this.Stream.ToPipeStream();
-                writeHandler(stream);
-                if (stream.CacheLength > 0)
-                    this.Stream.Flush();
-            }
-            return result;
-        }
+        //public AwaitStruct<PipeStream> ReceiveFrom(Action<PipeStream> writeHandler)
+        //{
+        //    var result = Receive();
+        //    if (writeHandler != null)
+        //    {
+        //        PipeStream stream = this.Stream.ToPipeStream();
+        //        writeHandler(stream);
+        //        if (stream.CacheLength > 0)
+        //            this.Stream.Flush();
+        //    }
+        //    return result;
+        //}
 
-        public AwaitStruct<T> ReceiveMessage<T>()
-        {
-            return new AwaitStruct<T>(ReceiveMessage());
-        }
+        //public AwaitStruct<T> ReceiveMessage<T>()
+        //{
+        //    return new AwaitStruct<T>(ReceiveMessage());
+        //}
 
-        public AwaitStruct<PipeStream> Receive()
-        {
-            awaitPipeStream.Reset();
-            bool isconnect;
-            Connect(out isconnect);
-            if (!AutoReceive)
-                BeginReceive();
-            return new AwaitStruct<PipeStream>(awaitPipeStream);
-        }
+        //public AwaitStruct<PipeStream> Receive()
+        //{
+        //    awaitPipeStream.Reset();
+        //    bool isconnect;
+        //    Connect(out isconnect);
+        //    if (!AutoReceive)
+        //        BeginReceive();
+        //    return new AwaitStruct<PipeStream>(awaitPipeStream);
+        //}
 
         public bool Connect(out bool newConnection)
         {
@@ -1029,13 +1037,15 @@ namespace BeetleX.Clients
         }
         public SslProtocols? SslProtocols { get; set; } = System.Security.Authentication.SslProtocols.Tls11 | System.Security.Authentication.SslProtocols.Tls12;
 
+        public X509CertificateCollection CertificateCollection { get; private set; } = new X509CertificateCollection();
+
         protected virtual void OnSslAuthenticate(SslStream sslStream)
         {
             Task task;
             if (SslProtocols == null)
-                task = sslStream.AuthenticateAsClientAsync(SslServiceName);
-            else
-                task = sslStream.AuthenticateAsClientAsync(SslServiceName, null, SslProtocols.Value, false);
+                SslProtocols = System.Security.Authentication.SslProtocols.Tls | System.Security.Authentication.SslProtocols.Tls11 |
+                     System.Security.Authentication.SslProtocols.Tls12;
+            task = sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
             task.Wait();
         }
 
@@ -1234,9 +1244,9 @@ namespace BeetleX.Clients
         {
             try
             {
-                if (mReadMessageAwait.Pending)
-                    mReadMessageAwait.Success(message);
-                else
+                //if (mReadMessageAwait.Pending)
+                //    mReadMessageAwait.Success(message);
+                //else
                     PacketReceive?.Invoke(this, message);
             }
             catch (Exception e_)

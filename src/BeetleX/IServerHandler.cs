@@ -9,6 +9,8 @@ namespace BeetleX
     public interface IServerHandler
     {
 
+        IServer Server { get; set; }
+
         void Connecting(IServer server, EventArgs.ConnectingEventArgs e);
 
         void Connected(IServer server, EventArgs.ConnectedEventArgs e);
@@ -24,6 +26,8 @@ namespace BeetleX
         void Disconnect(IServer server, EventArgs.SessionEventArgs e);
 
         void SessionDetection(IServer server, SessionDetectionEventArgs e);
+
+        void Opened(IServer server);
 
     }
 }

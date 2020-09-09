@@ -21,6 +21,7 @@ namespace BeetleX.EventArgs
 
         public LogType Type { get; set; }
 
+
         public string Message
         {
             get;

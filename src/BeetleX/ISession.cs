@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace BeetleX
@@ -37,6 +38,7 @@ namespace BeetleX
             get; set;
         }
 
+        SocketError LastSocketError { get; set; }
 
         Buffers.SocketAsyncEventArgsX SendEventArgs { get; set; }
 

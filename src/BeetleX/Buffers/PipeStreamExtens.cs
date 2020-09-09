@@ -172,9 +172,29 @@ namespace BeetleX.Buffers
             }
         }
 
+        public int Buffers
+        {
+            get
+            {
+                if (FirstBuffer == null)
+                {
+                    return 0;
+                }
+                else
+                {
+                    int count = 1;
+                    var buffer = FirstBuffer.Next;
+                    while (buffer != null)
+                    {
+                        count++;
+                        buffer = buffer.Next;
+                    }
+                    return count;
+                }
+            }
+        }
+
     }
-
-
 
 }
 namespace BeetleX

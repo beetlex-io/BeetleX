@@ -244,14 +244,15 @@ namespace BeetleX.Buffers
                 item = CreateBuffer();
             }
             item.Reset();
+            item.Pool = this;
             Interlocked.Decrement(ref mCount);
             return item;
-
         }
 
         public void Push(IBuffer item)
         {
             Interlocked.Increment(ref mCount);
+            item.Pool = null;
             mPool.Push(item);
         }
 

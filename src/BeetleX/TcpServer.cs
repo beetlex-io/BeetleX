@@ -252,9 +252,9 @@ namespace BeetleX
 
         public bool Open()
         {
+            bool result = false;
             try
             {
-
                 ToInitialize();
                 Status = ServerStatus.Start;
                 foreach (ListenHandler item in this.Options.Listens)
@@ -267,23 +267,34 @@ namespace BeetleX
                     if (EnableLog(LogType.Warring))
                         Log(LogType.Warring, null, "no serverGC mode,please enable serverGC mode!");
                 }
-                //Log(LogType.Info, null,
-                //   $"BeetleX [V:{typeof(TcpServer).Assembly.GetName().Version}]");
-                //Log(LogType.Info, null,
-                //    $"Environment [ServerGC:{GCSettings.IsServerGC}][IOQueue:{Options.IOQueueEnabled}|n:{Options.IOQueues}][Threads:{Environment.ProcessorCount}][Private Buffer:{Options.PrivateBufferPool}|{Options.PrivateBufferPoolSize/1024}KB]");
+                if (Handler != null)
+                    Handler.Server = this;
                 if (WriteLogo != null)
                     WriteLogo();
                 else
                     OnWriteLogo();
-                return true;
+                Handler?.Opened(this);
+                foreach (ListenHandler item in this.Options.Listens)
+                {
+                    result |= (item.Error == null);
+                }
             }
             catch (Exception e_)
             {
-                Status = ServerStatus.StartError;
+                Status = ServerStatus.Error;
                 if (EnableLog(LogType.Error))
                     Error(e_, null, "server start error!");
+                result = false;
             }
-            return false;
+            if (result)
+            {
+                Status = ServerStatus.Start;
+            }
+            else
+            {
+                Status = ServerStatus.Error;
+            }
+            return result;
         }
 
         public Action WriteLogo { get; set; }
@@ -313,13 +324,14 @@ namespace BeetleX
             {
                 logo += $" {item}\r\n";
             }
-            logo +=" -----------------------------------------------------------------------------\r\n";
+            logo += " -----------------------------------------------------------------------------\r\n";
             Log(LogType.Info, null, logo);
         }
 
         public void Resume()
         {
-            Status = ServerStatus.Start;
+            if (Status == ServerStatus.Stop)
+                Status = ServerStatus.Start;
         }
 
         public bool Pause()
@@ -462,7 +474,7 @@ namespace BeetleX
                     Log(LogType.Info, session, $"{session.RemoteEndPoint} begin receive cancel connection disposed");
                 return;
             }
-            Buffers.Buffer buffer=null;
+            Buffers.Buffer buffer = null;
             try
             {
                 buffer = (Buffers.Buffer)session.ReceiveBufferPool.Pop();
@@ -533,6 +545,7 @@ namespace BeetleX
             ISession session = ex.Session;
             try
             {
+                session.LastSocketError = e.SocketError;
                 if (e.SocketError == System.Net.Sockets.SocketError.Success && e.BytesTransferred > 0)
                 {
                     if (session.Server.Options.IOQueueEnabled)
@@ -569,6 +582,7 @@ namespace BeetleX
             ISession session = ex.Session;
             try
             {
+                session.LastSocketError = e.SocketError;
                 if (e.SocketError == SocketError.IOPending || e.SocketError == SocketError.Success)
                 {
                     if (session.Server.EnableLog(LogType.Trace))
@@ -813,13 +827,12 @@ namespace BeetleX
         {
             ClearSession();
             mInitialized = false;
-
             Status = ServerStatus.Closed;
             foreach (var item in Options.Listens)
                 item.Dispose();
             if (mReceiveDispatchCenter != null)
                 mReceiveDispatchCenter.Dispose();
-
+            Status = ServerStatus.Closed;
 
         }
 

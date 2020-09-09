@@ -10,10 +10,7 @@ namespace BeetleX
         None,
         Start,
         Stop,
-        StartError,
-        AcceptError,
-        Accepting,
-        Accepted,
+        Error,
         Closed
     }
 }

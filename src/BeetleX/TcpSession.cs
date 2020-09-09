@@ -164,7 +164,7 @@ namespace BeetleX
                 if (mSslStream != null)
                     mSslStream.Dispose();
                 Server.CloseSession(this);
-                Server = null;
+                //Server = null;
                 ReceiveDispatcher = null;
                 if (Packet != null)
                     Packet.Dispose();
@@ -259,7 +259,7 @@ namespace BeetleX
                     Server.SessionReceive(mReceiveArgs);
                 }
             }
-            catch(Exception e_)
+            catch (Exception e_)
             {
                 if (Server.EnableLog(EventArgs.LogType.Warring))
                 {
@@ -320,8 +320,8 @@ namespace BeetleX
             catch (Exception e_)
             {
                 Buffers.Buffer.Free(buffer);
-                if (Server.EnableLog(EventArgs.LogType.Error))
-                    Server.Error(e_, this, "{0} session send data error {1}!", this.RemoteEndPoint, e_.Message);
+                if (Server.EnableLog(EventArgs.LogType.Warring))
+                    Server.Log(EventArgs.LogType.Warring,this, "{0} session send data error {1}!", this.RemoteEndPoint, e_.Message);
             }
         }
 
@@ -411,6 +411,8 @@ namespace BeetleX
 
         public int MaxWaitMessages { get; set; }
 
+        public SocketError LastSocketError { get; set; }
+
         public void CreateSSL(AsyncCallback asyncCallback, ListenHandler listen, IServer server)
         {
             try
@@ -421,7 +423,7 @@ namespace BeetleX
                 mSslStream = new SslStreamX(this.SendBufferPool, server.Options.Encoding,
                     server.Options.LittleEndian, mBaseNetStream, false);
 
-                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, true, new AsyncCallback(asyncCallback),
+                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, listen.SslProtocols,true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
             }
             catch (Exception e_)

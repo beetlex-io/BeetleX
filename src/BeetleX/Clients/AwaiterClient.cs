@@ -41,7 +41,7 @@ namespace BeetleX.Clients
 
         private static void OnProcess((AwaiterClient client, object result) item)
         {
-            item.client.Success(item.result);
+            item.client.Success(item.result);        
         }
 
         private void OnError(IClient c, ClientErrorArgs e)
