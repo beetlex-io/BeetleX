@@ -20,16 +20,26 @@ high performance dotnet core socket tcp communication components,  support TCP, 
 [BeetleX's tcp, http, websocket, xprc ... Samples](https://github.com/IKende/BeetleX-Samples)
 
 ## Framework benchmarks 
-[https://tfb-status.techempower.com/](https://www.techempower.com/benchmarks/#section=test&runid=71407829-eaa7-4b5d-a6a2-54b8ba3b2d3f&hw=ph&test=json&p=zik0zj-zik0zj-zijocf-zik0zj-v)
-### Json
-![image](https://user-images.githubusercontent.com/2564178/77252513-3c89ac00-6c8f-11ea-8497-2fe9179089e7.png)
+[Benchmarks for .net (2020-11-12)](https://www.techempower.com/benchmarks/#section=test&runid=032630e0-3a86-4eac-ae2d-517e8b9586ac&hw=ph&test=json&p=zik0zi-zik0zj-zik0zj-zik0zj-3j&a=2)
 
-### Single query
-![image](https://user-images.githubusercontent.com/2564178/77252531-53300300-6c8f-11ea-97b8-368ad7f971e2.png)
+### Json
+![image](https://user-images.githubusercontent.com/2564178/99486432-1db6f300-299f-11eb-85b2-0919e350958d.png)
+
+
+### Single
+![image](https://user-images.githubusercontent.com/2564178/99486499-4343fc80-299f-11eb-8fb0-d9b4e34edbb0.png)
+
+### Multiple
+![image](https://user-images.githubusercontent.com/2564178/99486524-4f2fbe80-299f-11eb-891f-3f89745abe13.png)
 
 ### Fortunes
-![image](https://user-images.githubusercontent.com/2564178/77252541-6511a600-6c8f-11ea-912a-9a9beefc6541.png)
+![image](https://user-images.githubusercontent.com/2564178/99486553-5ce54400-299f-11eb-9e3a-2b04326ea760.png)
 
+### Data
+![image](https://user-images.githubusercontent.com/2564178/99486579-69699c80-299f-11eb-9452-14dd0f63e50d.png)
 
+### Cached
+![image](https://user-images.githubusercontent.com/2564178/99486597-71c1d780-299f-11eb-81bd-25a2462379d6.png)
 
-
+### Plaintext
+![image](https://user-images.githubusercontent.com/2564178/99486608-7ab2a900-299f-11eb-8606-b53fa5b709d8.png)
