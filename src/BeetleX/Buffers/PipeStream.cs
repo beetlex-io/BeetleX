@@ -552,6 +552,7 @@ namespace BeetleX.Buffers
             }
         }
 
+#if !NETSTANDARD2_0
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (!SSLConfirmed && SSL)
@@ -564,6 +565,7 @@ namespace BeetleX.Buffers
                 return new ValueTask();
             }
         }
+#endif
         #endregion
 
 
@@ -757,7 +759,7 @@ namespace BeetleX.Buffers
                     data = rbuffer.Read(length);
                     ReadAdvance(length);
                     var l = mDecoder.GetChars(data, charSpan, false);
-                    return new string(charSpan.Slice(0, l));
+                    return charSpan.Slice(0, l).AsString();
                 }
             }
             StringBuilder sb = new StringBuilder();
@@ -783,7 +785,7 @@ namespace BeetleX.Buffers
                 var l = mDecoder.GetChars(data, charSpan, false);
                 if (l > 0)
                 {
-                    sb.Append(charSpan.Slice(0, l));
+                    sb.Append(charSpan.Slice(0, l).AsString());
                 }
             }
 

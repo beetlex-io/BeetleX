@@ -124,3 +124,5 @@ samples/TCP.FixedString/Server/Properties/
 samples/TCP.FixedString/Server/Server.csproj.user
 .vs/BeetleX/v16/
 .vs/BeetleX/DesignTimeBuild/.dtbcache.v2
+src/BeetleX.Compat.ConcurrentQueue/bin/
+src/BeetleX.Compat.ConcurrentQueue/obj/
