@@ -6,18 +6,18 @@ high performance dotnet core socket tcp communication components,  support TCP, 
 							  <img src="https://img.shields.io/nuget/dt/BeetleX">
 							  </a>
 ## Extended Components
-- [High performance lightweight http and websocket server components](https://github.com/IKende/FastHttpApi)
+- [High performance lightweight http and websocket server components](https://github.com/beetlex-io/FastHttpApi)
    
-- [High performance http and websocket gateway components](https://github.com/IKende/Bumblebee)
+- [High performance http and websocket gateway components](https://github.com/beetlex-io/Bumblebee)
 
-- [High-performance async/non-blocking  redis client components](https://github.com/IKende/BeetleX.Redis)   
+- [High-performance async/non-blocking  redis client components](https://github.com/beetlex-io/BeetleX.Redis)   
   
-- [High performance remote interface invoke(RPC) communication components](https://github.com/IKende/XRPC)
+- [High performance remote interface invoke(RPC) communication components](https://github.com/beetlex-io/XRPC)
 
 - [Http and websocket clients](https://github.com/IKende/HttpClients)
  
 ## samples
-[BeetleX's tcp, http, websocket, xprc ... Samples](https://github.com/IKende/BeetleX-Samples)
+[BeetleX's tcp, http, websocket, xprc ... Samples](https://github.com/beetlex-io/BeetleX-Samples)
 
 ## Framework benchmarks 
 [Benchmarks for .net (2020-11-12)](https://www.techempower.com/benchmarks/#section=test&runid=032630e0-3a86-4eac-ae2d-517e8b9586ac&hw=ph&test=json&p=zik0zi-zik0zj-zik0zj-zik0zj-3j&a=2)
