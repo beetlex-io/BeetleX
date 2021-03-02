@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace BeetleX.Buffers
@@ -203,24 +201,6 @@ namespace BeetleX
 {
     public static partial class SpanCharExtensions
     {
-#if NETSTANDARD2_0
-        public static int GetChars(this Decoder decoder, ReadOnlySpan<byte> bytes, Span<char> chars, bool flush)
-        {
-            var dataX = bytes.ToArray();
-            var charsX = chars.ToArray();
-            return decoder.GetChars(dataX, 0, dataX.Length, charsX, 0, flush);
-        }
-#endif
-
-        public static string AsString(this Span<char> span)
-        {
-#if NETSTANDARD2_0
-            return new string(span.ToArray());
-#else
-            return new string(span);
-#endif
-        }
-
 
         public static ReadOnlySpan<char> SubLeftWith(this ReadOnlySpan<char> span, char[] chars, out ReadOnlySpan<char> item)
         {

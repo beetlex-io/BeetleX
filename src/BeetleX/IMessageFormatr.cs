@@ -24,4 +24,10 @@ namespace BeetleX
 
         ArraySegment<byte> Encode(object data, IServer server, byte[] buffer);
     }
+
+    public interface IMessageSubmitHandler
+    {
+        void Execute(object sender, object message);
+    }
+
 }

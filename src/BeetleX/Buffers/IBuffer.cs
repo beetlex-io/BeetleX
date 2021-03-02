@@ -53,6 +53,8 @@ namespace BeetleX.Buffers
 
         Span<byte> Read(int bytes);
 
+        ArraySegment<byte> ReadSegment(int bytes);
+
         void WriteAdvance(int bytes);
 
         void ReadAdvance(int bytes);
@@ -114,6 +116,14 @@ namespace BeetleX.Buffers
         }
 
         Action<IBuffer> Completed { get; set; }
+
+        IList<ArraySegment<byte>> GetArraySegmentList();
+
+        ArraySegment<byte> GetArraySegment();
+
+        int IndexOf(byte data, int? start = null);
+
+        int StartWith(byte[] data, int offset);
     }
 
     public class Buffer : IBuffer
@@ -203,6 +213,8 @@ namespace BeetleX.Buffers
             return false;
         }
 
+
+
         public Span<byte> GetSpan(int size)
         {
             if (mFree > size)
@@ -265,7 +277,22 @@ namespace BeetleX.Buffers
             ReadAdvance(read);
             return read;
         }
-
+        public ArraySegment<byte> ReadSegment(int bytes)
+        {
+            ArraySegment<byte> result;
+            int space = mLength - mPostion;
+            if (space > bytes)
+            {
+                result = new ArraySegment<byte>(Data, mPostion, bytes);
+                ReadAdvance(bytes);
+            }
+            else
+            {
+                result = new ArraySegment<byte>(Data, mPostion, space);// mData.Span.Slice(mPostion, space);
+                ReadAdvance(space);
+            }
+            return result;
+        }
         public Span<byte> Read(int bytes)
         {
             Span<byte> result;
@@ -304,7 +331,7 @@ namespace BeetleX.Buffers
         {
             get
             {
-                return mDeleteTag|| (mUsing == 1 && (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 1000 * BufferPool.BUFFER_FREE_TIMEOUT);
+                return mDeleteTag || (mUsing == 1 && (TimeWatch.GetElapsedMilliseconds() - mLastActiveTime) > 1000 * BufferPool.BUFFER_FREE_TIMEOUT);
             }
         }
 
@@ -589,6 +616,29 @@ namespace BeetleX.Buffers
 
         public Action<IBuffer> Completed { get; set; }
 
+
+        public ArraySegment<byte> GetArraySegment()
+        {
+            return new ArraySegment<byte>(Data, 0, Length);
+        }
+
+        private List<ArraySegment<byte>> mInnerBufferList = new List<ArraySegment<byte>>();
+
+        public IList<ArraySegment<byte>> GetArraySegmentList()
+        {
+            List<ArraySegment<byte>> result = mInnerBufferList;
+            result.Clear();
+            result.Add(GetArraySegment());
+            var nextBuffer = Next;
+            while (nextBuffer != null)
+            {
+                result.Add(nextBuffer.GetArraySegment());
+                nextBuffer = nextBuffer.Next;
+            }
+            return result;
+
+        }
+
         public int From(System.Net.Sockets.Socket socket)
         {
             int result = 0;
@@ -647,6 +697,35 @@ namespace BeetleX.Buffers
             }
         }
 
+        public int IndexOf(byte data, int? start = null)
+        {
+            int s = mPostion;
+            if (start != null)
+                s = start.Value;
+            //var span = Memory.Span.Slice(s, mLength - s);
+            //var index = span.IndexOf(data);
+            //if (index >= 0)
+            //    return mPostion + index;
+            for (int i = s; i < mLength; i++)
+            {
+                if (mBufferData[i] == data)
+                    return i;
+            }
+            return -1;
+        }
+        public int StartWith(byte[] data, int offset)
+        {
+            var len = data.Length - offset;
+            if (len > mLength)
+                return -1;
+            for (int i = 0; i < len; i++)
+            {
+                if (mBufferData[i] != data[i + offset])
+                    return -1;
+            }
+            return len - 1;
+        }
+
     }
 
     struct BufferLink
@@ -672,7 +751,6 @@ namespace BeetleX.Buffers
                     while (next != null)
                     {
                         Last = next;
-                        //next = buffer.Next;
                         next = next.Next;
                     }
                 }

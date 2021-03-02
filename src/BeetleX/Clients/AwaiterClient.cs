@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Security;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -8,11 +9,11 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Clients
 {
-    public class AwaiterClient : IAwaitObject
+    public class AwaiterClient : IAwaitObject, IClientSocketProcessHandler
     {
         static AwaiterClient()
         {
-            mAwaiterDispatchCenter = new Dispatchs.DispatchCenter<(AwaiterClient, object)>(OnProcess);
+            AwaiterDispatchCenter = new Dispatchs.DispatchCenter<(AwaiterClient, object)>(OnProcess);
         }
 
         public AwaiterClient(string host, int port, IClientPacket packet, string sslServiceName = null)
@@ -26,10 +27,11 @@ namespace BeetleX.Clients
                 mClient = SocketFactory.CreateSslClient<AsyncTcpClient>(packet, host, port, sslServiceName);
             }
             mClient.ClientError = OnError;
+            mClient.SocketProcessHandler = this;
             mClient.PacketReceive = OnPacketReceive;
         }
 
-        private static Dispatchs.DispatchCenter<(AwaiterClient, object)> mAwaiterDispatchCenter;
+        public static Dispatchs.DispatchCenter<(AwaiterClient, object)> AwaiterDispatchCenter { get; set; }
 
         private AsyncTcpClient mClient;
 
@@ -41,7 +43,7 @@ namespace BeetleX.Clients
 
         private static void OnProcess((AwaiterClient client, object result) item)
         {
-            item.client.Success(item.result);        
+            item.client.Success(item.result);
         }
 
         private void OnError(IClient c, ClientErrorArgs e)
@@ -51,7 +53,7 @@ namespace BeetleX.Clients
                 if (Pending)
                 {
                     Pending = false;
-                    mAwaiterDispatchCenter.Enqueue((this, new Exception(e.Message, e.Error)));
+                    AwaiterDispatchCenter.Get(this).Enqueue((this, new Exception(e.Message, e.Error)));
                 }
             }
         }
@@ -63,7 +65,7 @@ namespace BeetleX.Clients
                 if (Pending)
                 {
                     Pending = false;
-                    mAwaiterDispatchCenter.Enqueue((this, message));
+                    AwaiterDispatchCenter.Get(this).Enqueue((this, message));
                 }
                 else
                 {
@@ -86,6 +88,18 @@ namespace BeetleX.Clients
         }
 
         public Func<AwaiterClient, Task> Connected { get; set; }
+
+        public Task<T> ReceiveFrom<T>(object data, bool autoConnect = true)
+        {
+            Send(data);
+            return Receive<T>(autoConnect);
+        }
+
+        public async Task<T> Receive<T>(bool autoConnect = true)
+        {
+            object result = await Receive(autoConnect);
+            return (T)result;
+        }
 
         public IAwaitObject Receive(bool autoConnect = true)
         {
@@ -204,5 +218,18 @@ namespace BeetleX.Clients
         public bool Pending { get; set; } = false;
 
         #endregion
+        public virtual void ReceiveCompleted(IClient client, SocketAsyncEventArgs e)
+        {
+            EventReceiveCompleted?.Invoke(this, e);
+        }
+
+        public virtual void SendCompleted(IClient client, SocketAsyncEventArgs e, bool end)
+        {
+            EventSendCompleted?.Invoke(this, e, end);
+        }
+
+        public Action<AwaiterClient, SocketAsyncEventArgs> EventReceiveCompleted { get; set; }
+
+        public Action<AwaiterClient, SocketAsyncEventArgs, bool> EventSendCompleted { get; set; }
     }
 }

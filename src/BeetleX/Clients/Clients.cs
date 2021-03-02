@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Net.Http.Headers;
 
 namespace BeetleX.Clients
 {
@@ -196,6 +197,8 @@ namespace BeetleX.Clients
 
         public string SslServiceName { get; set; }
 
+        public int ConnectTimeOut { get; set; } = 1000 * 10;
+
         public RemoteCertificateValidationCallback CertificateValidationCallback { get; set; }
 
         protected virtual bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
@@ -221,13 +224,24 @@ namespace BeetleX.Clients
             return this;
         }
 
-        private void OnConnect()
+        private void CreateSocket()
         {
-
             mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             if (LocalEndPoint != null)
                 mSocket.Bind(LocalEndPoint);
             mSocket.Connect(mIPAddress, mPort);
+        }
+
+        private void OnConnect()
+        {
+
+            var task = Task.Run(() => CreateSocket());
+            if (!task.Wait(ConnectTimeOut))
+            {
+                mSocket?.Dispose();
+                throw new TimeoutException($"connect {mIPAddress}@{mPort} timeout! task status:{task.Status}");
+
+            }
             //if (LocalEndPoint == null)
             //    LocalEndPoint = mSocket.LocalEndPoint;
             mSocket.ReceiveTimeout = TimeOut;
@@ -506,11 +520,31 @@ namespace BeetleX.Clients
     {
         void ReceiveCompleted(IClient client, SocketAsyncEventArgs e);
 
-        void SendCompleted(IClient client, SocketAsyncEventArgs e);
+        void SendCompleted(IClient client, SocketAsyncEventArgs e, bool end);
     }
 
     public class AsyncTcpClient : IClient, IDisposable
     {
+
+        static AsyncTcpClient()
+        {
+            AwaiterDispatchCenter = new Dispatchs.DispatchCenter<(TaskCompletionSource<PipeStream>, object)>(OnProcess);
+        }
+
+        public static Dispatchs.DispatchCenter<(TaskCompletionSource<PipeStream>, object)> AwaiterDispatchCenter { get; set; }
+
+        private static void OnProcess((TaskCompletionSource<PipeStream>, object) e)
+        {
+            if (e.Item2 is Exception error)
+            {
+                e.Item1.TrySetException(error);
+            }
+            else
+            {
+                e.Item1.TrySetResult((PipeStream)e.Item2);
+            }
+        }
+
         public IClientSocketProcessHandler SocketProcessHandler
         {
             get;
@@ -629,9 +663,13 @@ namespace BeetleX.Clients
 
         private SslStreamX mSslStream = null;
 
-        //private AwaitObject awaitPipeStream = new AwaitObject();
+        private long mReceiveVersion = 0;
 
-        //private AwaitObject mReadMessageAwait = new AwaitObject();
+        private object mLockReceive = new object();
+
+        private TaskCompletionSource<PipeStream> mReceiveCompletionSource;
+
+        private long mAwaitReceive = 0;
 
         private int mPort;
 
@@ -643,11 +681,9 @@ namespace BeetleX.Clients
             e.Message = message;
             try
             {
-                //if (awaitPipeStream.Pending)
-                //    awaitPipeStream.Error(e_);
-                //if (mReadMessageAwait.Pending)
-                //    mReadMessageAwait.Error(e_);
+                OnAwaiterError(e_);
                 ClientError?.Invoke(this, e);
+
             }
             catch
             {
@@ -695,19 +731,12 @@ namespace BeetleX.Clients
                         }
                         item = DequeueSendMessage();
                     }
+                    OnAwaiterError(new SocketException((int)SocketError.ConnectionRefused));
                 }
                 catch
                 {
                 }
             }
-            //if (awaitPipeStream.Pending)
-            //{
-            //    awaitPipeStream.Error(new SocketException((int)SocketError.ConnectionAborted));
-            //}
-            //if (mReadMessageAwait.Pending)
-            //{
-            //    mReadMessageAwait.Error(new SocketException((int)SocketError.ConnectionAborted));
-            //}
         }
 
         private static void IO_Completed(object sender, SocketAsyncEventArgs e)
@@ -723,6 +752,45 @@ namespace BeetleX.Clients
                 SendCompleted(e);
             }
         }
+
+        public Task<PipeStream> Receive()
+        {
+            bool newConne;
+            if (!Connect(out newConne))
+                throw LastError;
+            lock (mLockReceive)
+            {
+                if (mAwaitReceive != mReceiveVersion)
+                {
+                    mAwaitReceive = mReceiveVersion;
+                    return Task.FromResult(Stream.ToPipeStream());
+                }
+                else
+                {
+                    mReceiveCompletionSource = new TaskCompletionSource<PipeStream>();
+                    return mReceiveCompletionSource.Task;
+                }
+            }
+        }
+
+        private void OnAwaiterError(Exception e_)
+        {
+            TaskCompletionSource<PipeStream> awaiter = null;
+            lock (mLockReceive)
+            {
+                if (mReceiveCompletionSource != null)
+                {
+                    mAwaitReceive = mReceiveVersion;
+                    awaiter = mReceiveCompletionSource;
+                    mReceiveCompletionSource = null;
+                }
+            }
+            if (awaiter != null)
+            {
+                AwaiterDispatchCenter.Get(this).Enqueue((awaiter, e_));
+            }
+        }
+
         private void OnReceive()
         {
             var error = mSslStream?.SyncDataError;
@@ -747,12 +815,27 @@ namespace BeetleX.Clients
             {
                 try
                 {
-                    mReceiveArgs.Stream = this.Stream;
-                    //if (awaitPipeStream.Pending)
-                    //    awaitPipeStream.Success(this.Stream.ToPipeStream());
-                    //else
-                        DataReceive?.Invoke(this, mReceiveArgs);
+                    TaskCompletionSource<PipeStream> awaiter = null;
+                    lock (mLockReceive)
+                    {
+                        mReceiveVersion++;
+                        if (mReceiveCompletionSource != null)
+                        {
+                            mAwaitReceive = mReceiveVersion;
+                            awaiter = mReceiveCompletionSource;
+                            mReceiveCompletionSource = null;
 
+                        }
+                    }
+                    if (awaiter != null)
+                    {
+                        AwaiterDispatchCenter.Get(this).Enqueue((awaiter, Stream.ToPipeStream()));
+                    }
+                    else
+                    {
+                        mReceiveArgs.Stream = this.Stream;
+                        DataReceive?.Invoke(this, mReceiveArgs);
+                    }
                 }
                 catch (Exception e_)
                 {
@@ -761,6 +844,7 @@ namespace BeetleX.Clients
 
             }
         }
+
         private void ImportReceive(IBuffer buffer)
         {
             mBaseNetworkStream.Import(buffer);
@@ -830,6 +914,14 @@ namespace BeetleX.Clients
 
                         }
                         buffer.Free();
+                        if (tcpclient.SocketProcessHandler != null)
+                        {
+                            try
+                            {
+                                tcpclient.SocketProcessHandler.SendCompleted(tcpclient, e, nextbuf == null);
+                            }
+                            catch { }
+                        }
                         if (nextbuf != null)
                         {
                             tcpclient.CommitBuffer(nextbuf);
@@ -847,8 +939,7 @@ namespace BeetleX.Clients
                     tcpclient.ProcessError(new SocketException((int)e.SocketError), $"Send error {e.SocketError}");
 
                 }
-                if (tcpclient.SocketProcessHandler != null)
-                    tcpclient.SocketProcessHandler.SendCompleted(tcpclient, e);
+
             }
             catch (Exception e_)
             {
@@ -898,6 +989,8 @@ namespace BeetleX.Clients
             set;
         }
 
+        public int ConnectTimeOut { get; set; } = 1000 * 10;
+
         public Socket Socket
         {
             get
@@ -926,45 +1019,16 @@ namespace BeetleX.Clients
             return false;
         }
 
-        //public AwaitObject ReceiveMessage()
-        //{
-        //    mReadMessageAwait.Reset();
-        //    bool isconnect;
-        //    Connect(out isconnect);
-        //    if (Packet == null)
-        //        ProcessError(new BXException("packet is empty be cannot receive messages!"), "packet is empty be cannot receive messages");
-        //    if (!AutoReceive)
-        //        BeginReceive();
-        //    return mReadMessageAwait;
-        //}
 
-        //public AwaitStruct<PipeStream> ReceiveFrom(Action<PipeStream> writeHandler)
-        //{
-        //    var result = Receive();
-        //    if (writeHandler != null)
-        //    {
-        //        PipeStream stream = this.Stream.ToPipeStream();
-        //        writeHandler(stream);
-        //        if (stream.CacheLength > 0)
-        //            this.Stream.Flush();
-        //    }
-        //    return result;
-        //}
 
-        //public AwaitStruct<T> ReceiveMessage<T>()
-        //{
-        //    return new AwaitStruct<T>(ReceiveMessage());
-        //}
+        private void CreateSocket()
+        {
+            mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            if (LocalEndPoint != null)
+                mSocket.Bind(LocalEndPoint);
+            mSocket.Connect(mIPAddress, mPort);
 
-        //public AwaitStruct<PipeStream> Receive()
-        //{
-        //    awaitPipeStream.Reset();
-        //    bool isconnect;
-        //    Connect(out isconnect);
-        //    if (!AutoReceive)
-        //        BeginReceive();
-        //    return new AwaitStruct<PipeStream>(awaitPipeStream);
-        //}
+        }
 
         public bool Connect(out bool newConnection)
         {
@@ -982,10 +1046,12 @@ namespace BeetleX.Clients
                         mBaseNetworkStream = null;
                         mSslStream?.Dispose();
                         mSslStream = null;
-                        mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                        if (LocalEndPoint != null)
-                            mSocket.Bind(LocalEndPoint);
-                        mSocket.Connect(mIPAddress, mPort);
+                        var task = Task.Run(() => CreateSocket());
+                        if (!task.Wait(ConnectTimeOut))
+                        {
+                            mSocket?.Dispose();
+                            throw new TimeoutException($"connect {mIPAddress}@{mPort} timeout! task status:{task.Status}");
+                        }
                         //if (LocalEndPoint == null)
                         //    LocalEndPoint = mSocket.LocalEndPoint;
                         mSocket.ReceiveTimeout = TimeOut;
@@ -1031,7 +1097,7 @@ namespace BeetleX.Clients
             catch (Exception e_)
             {
                 mConnected = false;
-                ProcessError(e_, "client connect to server error!");
+                ProcessError(e_, $"client connect to server error {e_.Message}!");
             }
             return mConnected;
         }
@@ -1201,6 +1267,8 @@ namespace BeetleX.Clients
                 if (Packet == null)
                     throw new BXException("message formater is null!");
                 Packet.Encode(data, null, stream);
+                if (data is IMessageSubmitHandler action)
+                    action.Execute(this, data);
             }
         }
 
@@ -1247,7 +1315,7 @@ namespace BeetleX.Clients
                 //if (mReadMessageAwait.Pending)
                 //    mReadMessageAwait.Success(message);
                 //else
-                    PacketReceive?.Invoke(this, message);
+                PacketReceive?.Invoke(this, message);
             }
             catch (Exception e_)
             {
@@ -1313,11 +1381,17 @@ namespace BeetleX.Clients
         {
             get
             {
-                bool isconnect;
-                Connect(out isconnect);
-                if (SSL)
-                    return mSslStream;
-                return mBaseNetworkStream;
+                bool isnew;
+                if (Connect(out isnew))
+                {
+                    if (SSL)
+                        return mSslStream;
+                    return mBaseNetworkStream;
+                }
+                else
+                {
+                    throw LastError;
+                }
             }
         }
 

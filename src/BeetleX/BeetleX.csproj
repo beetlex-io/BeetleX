@@ -1,16 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp2.1;netstandard2.0;netstandard2.1;net5.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.5.3.2</AssemblyVersion>
-    <FileVersion>1.5.3.2</FileVersion>
-    <Version>1.5.3.2</Version>
+    <AssemblyVersion>1.6.5.41</AssemblyVersion>
+    <FileVersion>1.6.5.41</FileVersion>
+    <Version>1.6.5.41</Version>
     <Description>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</Description>
-    <Copyright>Copyright © 2019-2020  beetlex.io</Copyright>
-    <PackageProjectUrl>https://github.com/IKende/BeetleX</PackageProjectUrl>
+    <Copyright>Copyright © 2019-2021  beetlex.io</Copyright>
+    <PackageProjectUrl>https://github.com/beetlex-io/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/IKende/FastHttpApi/blob/master/LICENSE</PackageLicenseUrl>
     <Company>beetlex.io</Company>
     <LangVersion>7.3</LangVersion>
@@ -19,26 +19,28 @@
     <PackageReleaseNotes>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
     <PackageIcon>beetlex200.png</PackageIcon>
+    <PackageId>BeetleX</PackageId>
+    <PackageTags></PackageTags>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DefineConstants>TRACE;DEBUG;DOTNET_CORE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;DOTNET_CORE;NETCOREAPP2_0</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DefineConstants>TRACE;RELEASE;DOTNET_CORE</DefineConstants>
+    <DefineConstants>TRACE;RELEASE;DOTNET_CORE;NETCOREAPP2_0;NETCOREAPP2_0</DefineConstants>
   </PropertyGroup>
-
+  <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
+    <PackageReference Include="System.Buffers" Version="4.5.1" />
+    <PackageReference Include="System.Memory" Version="4.5.4" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Remove="Blocks\**" />
     <EmbeddedResource Remove="Blocks\**" />
     <None Remove="Blocks\**" />
-    <None Include="..\..\..\..\..\beetlex200.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -46,10 +48,4 @@
     <Compile Remove="Buffers\BinaryWriter.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-    <PackageReference Include="System.Buffers" Version="4.5.1" />
-    <PackageReference Include="System.Memory" Version="4.5.4" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
-    <ProjectReference Include="..\BeetleX.Compat.ConcurrentQueue\BeetleX.Compat.ConcurrentQueue.csproj" />
-  </ItemGroup>
 </Project>

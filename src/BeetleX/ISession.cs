@@ -11,7 +11,7 @@ namespace BeetleX
     {
         void ReceiveCompleted(ISession session, System.Net.Sockets.SocketAsyncEventArgs e);
 
-        void SendCompleted(ISession session, System.Net.Sockets.SocketAsyncEventArgs e);
+        void SendCompleted(ISession session, System.Net.Sockets.SocketAsyncEventArgs e, bool end);
     }
 
 
@@ -30,6 +30,8 @@ namespace BeetleX
         Buffers.IBufferPool ReceiveBufferPool { get; set; }
 
         Buffers.IBufferPool SendBufferPool { get; set; }
+
+        ListenHandler ListenHandler { get; set; }
 
         void Initialization(IServer server, Action<ISession> setting);
 

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using BeetleX.Clients;
 
 namespace BeetleX.Dispatchs
 {
@@ -13,7 +12,7 @@ namespace BeetleX.Dispatchs
         public SingleThreadDispatcher(Action<T> process)
         {
             Process = process;
-            mQueue = new ConcurrentQueueX<T>();
+            mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
         }
 
         private readonly object _workSync = new object();
@@ -24,7 +23,7 @@ namespace BeetleX.Dispatchs
 
         private Action<T> Process;
 
-        private ConcurrentQueueX<T> mQueue;
+        private System.Collections.Concurrent.ConcurrentQueue<T> mQueue;
 
         public Action<T, Exception> ProcessError { get; set; }
 
@@ -79,12 +78,17 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
+#if NETSTANDARD2_0
+            while (mQueue.TryDequeue(out T result)) ;
+#else
             mQueue.Clear();
+#endif
         }
     }
 
     public class MultiThreadDispatcher<T> : IDisposable
     {
+
         public MultiThreadDispatcher(Action<T> process, int waitLength, int maxThreads)
         {
             mProcess = process;
@@ -104,7 +108,7 @@ namespace BeetleX.Dispatchs
 
         public Action<T> Process => mProcess;
 
-        private ConcurrentQueueX<T> mQueue = new ConcurrentQueueX<T>();
+        private System.Collections.Concurrent.ConcurrentQueue<T> mQueue = new System.Collections.Concurrent.ConcurrentQueue<T>();
 
         public int Count => mCount;
 
@@ -190,7 +194,11 @@ namespace BeetleX.Dispatchs
 
         public void Dispose()
         {
+#if NETSTANDARD2_0
+            while (mQueue.TryDequeue(out T result)) ;
+#else
             mQueue.Clear();
+#endif
         }
 
     }

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace BeetleX.Buffers
@@ -49,7 +52,11 @@ namespace BeetleX.Buffers
         {
             this.IsReceive = true;
             this.UserToken = useToken;
-            this.SetBuffer(BufferX);
+#if NETSTANDARD2_0
+            this.SetBuffer(BufferX.Data, 0, BufferX.Data.Length);
+#else
+            this.SetBuffer(BufferX.Memory);
+#endif
             var lastSocket = LastSocket;
             LastSocket = socket;
             if (!socket.ReceiveAsync(this))
@@ -89,7 +96,11 @@ namespace BeetleX.Buffers
         {
             this.IsReceive = false;
             this.UserToken = userToken;
-            this.SetBuffer(BufferX, length);
+#if NETSTANDARD2_0
+            this.SetBuffer(BufferX.Data, BufferX.Postion, length);
+#else
+            this.SetBuffer(BufferX.Memory.Slice(BufferX.Postion, length));
+#endif
             var lastSocket = LastSocket;
             LastSocket = socket;
             if (!socket.SendAsync(this))

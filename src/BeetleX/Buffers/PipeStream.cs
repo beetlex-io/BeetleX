@@ -107,7 +107,7 @@ namespace BeetleX.Buffers
 
         public IBuffer WriteFirstBuffer => mWriteFirstBuffer;
 
-        private IBuffer GetReadBuffer()
+        internal IBuffer GetReadBuffer()
         {
             if (mReadFirstBuffer == null)
                 return null;
@@ -123,7 +123,7 @@ namespace BeetleX.Buffers
             return mReadFirstBuffer;
         }
 
-        private IBuffer GetWriteBuffer()
+        internal IBuffer GetWriteBuffer()
         {
             IBuffer result;
             if (mWriteLastBuffer == null)
@@ -184,15 +184,14 @@ namespace BeetleX.Buffers
             IBuffer result = mReadFirstBuffer;
             mReadFirstBuffer = null;
             mReadLastBuffer = null;
-            //System.Threading.Interlocked.Exchange(ref mLength, 0);
-            mLength = 0;
+            System.Threading.Interlocked.Exchange(ref mLength, 0);
+            //mLength = 0;
             return result;
         }
 
         public void Import(IBuffer buffer)
         {
             buffer.Postion = 0;
-            AddReadLength(buffer.Length);
             if (mReadLastBuffer == null)
             {
                 mReadLastBuffer = buffer;
@@ -203,6 +202,7 @@ namespace BeetleX.Buffers
                 mReadLastBuffer.Next = buffer;
                 mReadLastBuffer = buffer;
             }
+            AddReadLength(buffer.Length);
             if (buffer != null && buffer.Next != null)
             {
                 Import(buffer.Next);
@@ -214,6 +214,18 @@ namespace BeetleX.Buffers
                     int len = Read(readCompletionSource.Buffer, readCompletionSource.Offset, readCompletionSource.Count);
                     readCompletionSource.TrySetResult(len);
                 }
+#if NETSTANDARD2_0
+                else
+                {
+                    if (mReadAsyncResult != null)
+                    {
+                        var result = mReadAsyncResult;
+                        mReadAsyncResult = null;
+                        result.IsCompleted = true;
+                        result.AsyncCallback(result);
+                    }
+                }
+#endif
             }
 
         }
@@ -309,91 +321,87 @@ namespace BeetleX.Buffers
             return result;
         }
 
-        private bool IndexOf(ref IndexOfResult result, IBuffer buffer)
+        private int GetLength(IBuffer first, IBuffer last, int end)
         {
-            int start = buffer.Postion;
-            int length = buffer.Length;
-            Span<byte> data = buffer.Memory.Span;
-            Span<byte> eof = result.EofData;
-            int eoflen = eof.Length;
-            result.End = buffer;
-            int eofindex = result.EofIndex;
-            int endpoint = 0;
-            for (int i = start; i < length; i++)
+            int len = 0;
+            if (first == last)
             {
-                result.Length++;
-                if (data[i] == eof[eofindex])
+                len = end - first.Postion;
+                return len + 1;
+            }
+            len = first.Length - first.Postion;
+            var next = first.Next;
+            while (next != null)
+            {
+                if (next == last)
                 {
-                    eofindex++;
-                    endpoint = i;
-                    if (eofindex == eoflen)
-                    {
-                        result.EndPostion = endpoint;
-                        return true;
-                    }
+                    len += end + 1;
+                    break;
                 }
                 else
-                {
-                    eofindex = 0;
-                }
+                    len += (next.Length - next.Postion);
+                next = next.Next;
             }
-            result.EofIndex = eofindex;
-            result.End = null;
-            return false;
+            return len;
         }
+        static byte[] mLineEof = { 13, 10 };
 
-        public unsafe int IndexOf(byte[] eof, byte[] data)
+        public IndexOfResult IndexOfLine()
         {
-            int matchLength = eof.Length;
-            int bufferSize = data.Length;
-            int length;
-            Span<byte> eofBlock = stackalloc byte[matchLength];
-            for (int i = 0; i < matchLength; i++)
+            IndexOfResult result = new IndexOfResult();
+            result.EofData = mLineEof;
+            if (mLength < 2)
+                return result;
+            IBuffer rbuffer = GetReadBuffer();
+            if (rbuffer == null)
+                return result;
+            result.Start = rbuffer;
+            result.StartPostion = rbuffer.Postion;
+            int bufferLen = 0;
+            byte[] bufferdata = null;
+            while (rbuffer != null)
             {
-                eofBlock[i] = eof[i];
-            }
-            int count = 0;
-            if (eof == null || mLength < eof.Length)
-                return count;
-            int match = 0;
-            fixed (byte* dest = data)
-            {
-                byte* destData = dest;
-                IBuffer rbuffer = GetReadBuffer();
-                while (rbuffer != null)
+                bufferLen = rbuffer.Length;
+                bufferdata = rbuffer.Data;
+                int? offset = null;
+                while (true)
                 {
-                    fixed (byte* source = &rbuffer.Data[rbuffer.Postion])
+                    var index = rbuffer.IndexOf(13, offset);
+                    if (index != -1)
                     {
-                        if (count >= bufferSize)
-                            return 0;
-                        byte* sourceData = source;
-                        length = rbuffer.Length;
-                        for (int i = 0; i < length; i++)
+                        offset = index + 1;
+                        if (index + 1 >= bufferLen)
                         {
-                            *destData = *sourceData;
-                            count++;
-                            if (eofBlock[match] == *sourceData)
+                            if (rbuffer.Next == null)
+                                return result;
+                            if (rbuffer.Next.Data[0] == 10)
                             {
-                                match++;
+                                result.End = rbuffer.Next;
+                                result.EndPostion = 0;
+                                result.Length = GetLength((IBuffer)result.Start, (IBuffer)result.End, result.EndPostion);
+                                return result;
                             }
-                            else
+                        }
+                        else
+                        {
+                            if (bufferdata[index + 1] == 10)
                             {
-                                match = 0;
+                                result.End = rbuffer;
+                                result.EndPostion = index + 1;
+                                result.Length = GetLength((IBuffer)result.Start, (IBuffer)result.End, result.EndPostion);
+                                return result;
                             }
-                            if (match == matchLength)
-                            {
-                                return count;
-                            }
-                            sourceData++;
-                            destData++;
                         }
                     }
-                    rbuffer = GetReadBuffer();
+                    else
+                    {
+                        break;
+                    }
                 }
+                rbuffer = rbuffer.Next;
             }
-            return 0;
+            return result;
         }
-
         public IndexOfResult IndexOf(Byte[] eof)
         {
             IndexOfResult result = new IndexOfResult();
@@ -405,16 +413,68 @@ namespace BeetleX.Buffers
                 return result;
             result.Start = rbuffer;
             result.StartPostion = rbuffer.Postion;
-            if (IndexOf(ref result, rbuffer))
-            {
-                return result;
-            }
-            rbuffer = rbuffer.Next;
+            int bufferLen = 0;
+            int eofOffset = 0;
+            byte[] bufferdata = null;
             while (rbuffer != null)
             {
-                if (IndexOf(ref result, rbuffer))
+                bufferLen = rbuffer.Length;
+                bufferdata = rbuffer.Data;
+                int? offset = null;
+                while (true)
                 {
-                    return result;
+                    var index = rbuffer.IndexOf(eof[0], offset);
+                    if (index != -1)
+                    {
+                        offset = index + 1;
+                        if (eof.Length == 1)
+                        {
+                            result.End = rbuffer;
+                            result.EndPostion = index;
+                            result.Length = GetLength((IBuffer)result.Start, (IBuffer)result.End, result.EndPostion);
+                            return result;
+                        }
+                        eofOffset = 1;
+                        for (int i = offset.Value; i < bufferLen; i++)
+                        {
+                            if (eof[eofOffset] == bufferdata[i])
+                            {
+                                eofOffset++;
+                                if (eofOffset == eof.Length)
+                                    break;
+                            }
+                            else
+                            {
+                                eofOffset = -1;
+                                break;
+                            }
+                        }
+                        if (eofOffset == eof.Length)
+                        {
+                            result.End = rbuffer;
+                            result.EndPostion = index + eofOffset - 1;
+                            result.Length = GetLength((IBuffer)result.Start, (IBuffer)result.End, result.EndPostion);
+                            return result;
+                        }
+                        else if (eofOffset > 0)
+                        {
+                            if (rbuffer.Next != null)
+                            {
+                                var startW = rbuffer.Next.StartWith(eof, eofOffset);
+                                if (startW != -1)
+                                {
+                                    result.End = rbuffer.Next;
+                                    result.EndPostion = startW;
+                                    result.Length = GetLength((IBuffer)result.Start, (IBuffer)result.End, result.EndPostion);
+                                    return result;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
                 rbuffer = rbuffer.Next;
             }
@@ -435,13 +495,13 @@ namespace BeetleX.Buffers
 
         internal void ReadAdvance(int bytes)
         {
-            mLength -= bytes;
+            System.Threading.Interlocked.Add(ref mLength, -bytes);
             if (mLength == 0)
                 GetReadBuffer();
         }
         internal void AddReadLength(int length)
         {
-            mLength += length;
+            System.Threading.Interlocked.Add(ref mLength, length);
         }
 
         protected virtual void OnDisposed()
@@ -453,6 +513,10 @@ namespace BeetleX.Buffers
             Buffer.Free(mWriteFirstBuffer);
             mWriteFirstBuffer = null;
             mWriteLastBuffer = null;
+#if NETSTANDARD2_1
+            mPipeStreamBufferWriter?.Dispose();
+            mPipeStreamBufferWriter = null;
+#endif
         }
 
         protected override void Dispose(bool disposing)
@@ -551,7 +615,6 @@ namespace BeetleX.Buffers
                 return Task.CompletedTask;
             }
         }
-
 #if !NETSTANDARD2_0
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -743,26 +806,44 @@ namespace BeetleX.Buffers
             return ReadString(len);
         }
 
+        [ThreadStatic]
+        private static StringBuilder mThreadStringBuilder;
+
         public string ReadString(int length)
         {
             if (length == 0)
                 return string.Empty;
             IBuffer rbuffer;
+#if NETSTANDARD2_0
+            ArraySegment<byte> data;
+            char[] charSpan = mCharCacheBlock;
+#else
             Span<byte> data;
             Span<char> charSpan = mCharCacheBlock.AsSpan();
+#endif
             if (length < mCacheBlockLen)
             {
                 rbuffer = GetAndVerifyReadBuffer();
                 int freelen = rbuffer.Length - rbuffer.Postion;
-                if (freelen > length)
+                if (freelen >= length)
                 {
+#if NETSTANDARD2_0
+                    data = rbuffer.ReadSegment(length);
+                    ReadAdvance(length);
+                    var l = mDecoder.GetChars(data.Array, data.Offset, data.Count, charSpan, 0, false);
+                    return new string(charSpan, 0, l);
+#else
                     data = rbuffer.Read(length);
                     ReadAdvance(length);
                     var l = mDecoder.GetChars(data, charSpan, false);
-                    return charSpan.Slice(0, l).AsString();
+                    return new string(charSpan.Slice(0, l));
+#endif
                 }
             }
-            StringBuilder sb = new StringBuilder();
+            if (mThreadStringBuilder == null)
+                mThreadStringBuilder = new StringBuilder();
+            StringBuilder sb = mThreadStringBuilder;
+            sb.Clear();
             int rlen = 0;
             while (length > 0)
             {
@@ -772,6 +853,23 @@ namespace BeetleX.Buffers
                     rlen = length;
                 rbuffer = GetAndVerifyReadBuffer();
                 int freelen = rbuffer.Length - rbuffer.Postion;
+#if NETSTANDARD2_0
+                if (freelen > rlen)
+                {
+                    data = rbuffer.ReadSegment(rlen);
+                }
+                else
+                {
+                    data = rbuffer.ReadSegment(freelen);
+                }
+                ReadAdvance(data.Count);
+                length -= data.Count;
+                var l = mDecoder.GetChars(data.Array, data.Offset, data.Count, charSpan, 0, false);
+                if (l > 0)
+                {
+                    sb.Append(charSpan, 0, l);
+                }
+#else
                 if (freelen > rlen)
                 {
                     data = rbuffer.Read(rlen);
@@ -785,10 +883,10 @@ namespace BeetleX.Buffers
                 var l = mDecoder.GetChars(data, charSpan, false);
                 if (l > 0)
                 {
-                    sb.Append(charSpan.Slice(0, l).AsString());
+                    sb.Append(charSpan.Slice(0, l));
                 }
+#endif
             }
-
             return sb.ToString();
         }
 
@@ -875,7 +973,44 @@ namespace BeetleX.Buffers
 
         public bool TryReadLine(out string value, bool returnEof = false)
         {
-            return TryReadWith("\r\n", out value, returnEof);
+            value = null;
+            IndexOfResult result = IndexOfLine();
+            int length = result.Length;
+            if (result.End != null)
+            {
+                if (result.Start.ID == result.End.ID)
+                {
+                    char[] charSpan = mCharCacheBlock;
+                    if (result.Length < mCacheBlockLen)
+                    {
+                        var len = Encoding.GetChars(result.Start.Data, result.StartPostion, length, charSpan, 0);
+                        if (returnEof)
+                            value = new string(charSpan, 0, len);
+                        else
+                            value = new string(charSpan, 0, len - 2);
+                        ReadFree(length);
+                    }
+                    else
+                    {
+                        value = ReadString(result.Length);
+                    }
+                }
+                else
+                {
+                    if (returnEof)
+                    {
+                        value = ReadString(result.Length);
+                    }
+                    else
+                    {
+                        value = ReadString(result.Length - 2);
+                        ReadFree(2);
+                    }
+                }
+
+                return true;
+            }
+            return false;
         }
 
         public bool TryReadWith(string eof, out string value, bool returnEof = false)
@@ -1216,6 +1351,106 @@ namespace BeetleX.Buffers
 
         #region pipistream intersocket send receive methods
 
+#if NETSTANDARD2_0
+        class ReadAsyncResult : IAsyncResult
+        {
+            public byte[] Buffer { get; set; }
+
+            public int Offset { get; set; }
+
+            public int Size { get; set; }
+
+            public object AsyncState { get; set; }
+
+            public WaitHandle AsyncWaitHandle => null;
+
+            public bool CompletedSynchronously
+            {
+                get; set;
+            }
+
+            public bool IsCompleted { get; set; }
+
+            public AsyncCallback AsyncCallback { get; set; }
+        }
+
+        private ReadAsyncResult mReadAsyncResult;
+
+        public override IAsyncResult BeginRead(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
+        {
+            if (SSLConfirmed && SSL)
+            {
+                if (Length > 0)
+                {
+                    var result = new ReadAsyncResult();
+                    result.AsyncState = state;
+                    result.CompletedSynchronously = true;
+                    result.Buffer = buffer;
+                    result.Offset = offset;
+                    result.Size = size;
+                    result.IsCompleted = true;
+                    return result;
+                }
+                else
+                {
+                    mReadAsyncResult = new ReadAsyncResult();
+                    mReadAsyncResult.AsyncState = state;
+                    mReadAsyncResult.CompletedSynchronously = false;
+                    mReadAsyncResult.Buffer = buffer;
+                    mReadAsyncResult.Offset = offset;
+                    mReadAsyncResult.Size = size;
+                    mReadAsyncResult.IsCompleted = false;
+                    mReadAsyncResult.AsyncCallback = callback;
+                    return mReadAsyncResult;
+                }
+            }
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException("buffer");
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException("offset");
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException("size");
+            }
+            Socket streamSocket = Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+            IAsyncResult asyncResult = streamSocket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+            return asyncResult;
+        }
+
+        public override int EndRead(IAsyncResult asyncResult)
+        {
+            if (SSLConfirmed && SSL)
+            {
+                var result = asyncResult as ReadAsyncResult;
+                var len = Read(result.Buffer, result.Offset, result.Size);
+                return len;
+            }
+            if (asyncResult == null)
+            {
+                throw new ArgumentNullException("asyncResult");
+            }
+            Socket streamSocket = this.Socket;
+            if (streamSocket == null)
+            {
+                throw new BXException("PipeStream Socket is null!");
+            }
+
+            int num = streamSocket.EndReceive(asyncResult);
+            return num;
+        }
+
+
+#else
+
         public override IAsyncResult BeginRead(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
         {
             if (buffer == null)
@@ -1255,7 +1490,7 @@ namespace BeetleX.Buffers
             return num;
         }
 
-
+#endif
 
         public override IAsyncResult BeginWrite(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
         {

@@ -80,16 +80,26 @@ namespace BeetleX.Packets
         private void OnEncode(ISession session, object data, System.IO.Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-            MemoryBlockCollection msgsize = pstream.Allocate(4);
+            MemoryBlockCollection msgsize;
+            if (SizeType == FixedSizeType.INT)
+                msgsize = pstream.Allocate(4);
+            else
+                msgsize = pstream.Allocate(2);
             int length = (int)pstream.CacheLength;
             OnWrite(session, data, pstream);
             if (SizeType == FixedSizeType.INT)
             {
-                msgsize.Full((int)pstream.CacheLength - length);
+                int len = (int)pstream.CacheLength - length;
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt32(len);
+                msgsize.Full(len);
             }
             else
             {
-                msgsize.Full((Int16)pstream.CacheLength - length);
+                short len = (short)(pstream.CacheLength - length);
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt16(len);
+                msgsize.Full(len);
             }
 
         }
@@ -185,16 +195,26 @@ namespace BeetleX.Packets
         public void Encode(object data, IClient client, Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-            MemoryBlockCollection msgsize = pstream.Allocate(4);
+            MemoryBlockCollection msgsize;
+            if (SizeType == FixedSizeType.INT)
+                msgsize = pstream.Allocate(4);
+            else
+                msgsize = pstream.Allocate(2);
             int length = (int)pstream.CacheLength;
             OnWrite(data, client, pstream);
             if (SizeType == FixedSizeType.INT)
             {
-                msgsize.Full((int)pstream.CacheLength - length);
+                int len = (int)pstream.CacheLength - length;
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt32(len);
+                msgsize.Full(len);
             }
             else
             {
-                msgsize.Full((Int16)pstream.CacheLength - length);
+                short len = (short)(pstream.CacheLength - length);
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt16(len);
+                msgsize.Full(len);
             }
         }
     }

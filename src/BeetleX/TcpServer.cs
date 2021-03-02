@@ -247,7 +247,10 @@ namespace BeetleX
 
         private void OnListenAcceptCallBack(AcceptSocketInfo e)
         {
-            Task.Run(() => AcceptProcess(e));
+            if (Options.UseAccessQueue)
+                mAcceptDispatcher.Next().Enqueue(e);
+            else
+                Task.Run(() => AcceptProcess(e));
         }
 
         public bool Open()
@@ -298,6 +301,21 @@ namespace BeetleX
         }
 
         public Action WriteLogo { get; set; }
+
+        private System.Collections.Concurrent.ConcurrentDictionary<string, object> mProperties = new ConcurrentDictionary<string, object>();
+
+        public object this[string name]
+        {
+            get
+            {
+                mProperties.TryGetValue(name, out object data);
+                return data;
+            }
+            set
+            {
+                mProperties[name] = value;
+            }
+        }
 
         private void OnWriteLogo()
         {
@@ -380,6 +398,7 @@ namespace BeetleX
             session.Server = this;
             session.Host = e.Listen.Host;
             session.Port = e.Listen.Port;
+            session.ListenHandler = e.Listen;
             session.ReceiveBufferPool = this.ReceiveBufferPool.Next();
             session.SendBufferPool = this.SendBufferPool.Next();
             session.SSL = e.Listen.SSL;
@@ -587,9 +606,10 @@ namespace BeetleX
                 {
                     if (session.Server.EnableLog(LogType.Trace))
                     {
-                        session.Server.Log(LogType.Trace, session, "{0} send hex:{1}", session.RemoteEndPoint,
-                             BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
-                            );
+                        if (ex.BufferX != null)
+                            session.Server.Log(LogType.Trace, session, "{0} send hex:{1}", session.RemoteEndPoint,
+                                 BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
+                                );
                     }
                     if (this.Options.Statistical)
                     {
@@ -614,6 +634,18 @@ namespace BeetleX
                         }
                         IBuffer nextbuf = buffer.Next;
                         buffer.Free();
+                        if (session.SocketProcessHandler != null)
+                        {
+                            try
+                            {
+                                session.SocketProcessHandler.SendCompleted(session, e, nextbuf == null);
+                            }
+                            catch (Exception ce_)
+                            {
+                                if (EnableLog(LogType.Error))
+                                    Error(ce_, ex.Session, "{0} send data completed process handler error {1}!", ex.Session.RemoteEndPoint, ce_.Message);
+                            }
+                        }
                         if (nextbuf != null)
                         {
                             ((TcpSession)session).CommitBuffer(nextbuf);
@@ -621,18 +653,7 @@ namespace BeetleX
                         else
                         {
                             ((TcpSession)session).SendCompleted();
-                            if (session.SocketProcessHandler != null)
-                            {
-                                try
-                                {
-                                    session.SocketProcessHandler.SendCompleted(session, e);
-                                }
-                                catch (Exception ce_)
-                                {
-                                    if (EnableLog(LogType.Error))
-                                        Error(ce_, ex.Session, "{0} send data completed process handler error {1}!", ex.Session.RemoteEndPoint, ce_.Message);
-                                }
-                            }
+
                         }
                     }
                 }
@@ -832,6 +853,7 @@ namespace BeetleX
                 item.Dispose();
             if (mReceiveDispatchCenter != null)
                 mReceiveDispatchCenter.Dispose();
+            this.mProperties.Clear();
             Status = ServerStatus.Closed;
 
         }
@@ -880,7 +902,8 @@ namespace BeetleX
                     if (Options.Combined > 0 && sessions.Count >= Options.Combined)
                     {
                         byte[] data = Packet.Encode(message, this);
-                        return OnSend(data, sessions);
+                        var dataHandler = new BytesHandler(data);
+                        return OnSend(dataHandler, sessions);
                     }
                     else
                     {

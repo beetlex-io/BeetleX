@@ -20,5 +20,6 @@ namespace BeetleX.Buffers
         public byte[] EofData;
 
         public int EofIndex;
+
     }
 }

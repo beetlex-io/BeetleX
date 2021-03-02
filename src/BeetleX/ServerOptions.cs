@@ -29,7 +29,7 @@ namespace BeetleX
             if (threads == 0)
                 threads = 1;
             IOQueues = Math.Min(threads, 16);
-            BufferPoolGroups =4;
+            BufferPoolGroups = 4;
 
         }
 
@@ -37,11 +37,13 @@ namespace BeetleX
 
         public int IOQueues { get; set; }
 
-        public bool SyncAccept { get; set; } = true;
+        public bool SyncAccept { get; set; } = false;
 
         public int SessionTimeOut { get; set; }
 
         public bool UseIPv6 { get; set; }
+
+        public bool UseAccessQueue { get; set; } = false;
 
         public EventArgs.LogType LogLevel { get; set; }
 

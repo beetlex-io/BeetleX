@@ -59,6 +59,7 @@ namespace BeetleX
 
         private Dictionary<string, object> mProperties = new Dictionary<string, object>();
 
+        public ListenHandler ListenHandler { get; set; }
 
         public string Host { get; set; }
 
@@ -165,6 +166,7 @@ namespace BeetleX
                     mSslStream.Dispose();
                 Server.CloseSession(this);
                 //Server = null;
+                ListenHandler = null;
                 ReceiveDispatcher = null;
                 if (Packet != null)
                     Packet.Dispose();
@@ -271,7 +273,7 @@ namespace BeetleX
 
         internal void ProcessSendMessages()
         {
-            IBuffer[] items;
+            //IBuffer[] items;
             if (IsDisposed || mCount == 0)
                 return;
             if (System.Threading.Interlocked.CompareExchange(ref mSendStatus, 1, 0) == 0)
@@ -370,6 +372,8 @@ namespace BeetleX
                 if (Packet == null)
                     throw new BXException("message formater is null!");
                 Packet.Encode(data, this, stream);
+                if (data is IMessageSubmitHandler action)
+                    action.Execute(this, data);
             }
         }
 
