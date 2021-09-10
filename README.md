@@ -70,6 +70,174 @@ class Program : ServerHandlerBase
 }
 ```
 
+## custom packet
+``` csharp
+    public abstract class FixedHeaderPacket : IPacket
+    {
+
+        public FixedHeaderPacket()
+        {
+            SizeType = FixedSizeType.INT;
+        }
+
+        public FixedSizeType SizeType
+        { get; set; }
+
+        public EventHandler<PacketDecodeCompletedEventArgs> Completed { get; set; }
+
+        public abstract IPacket Clone();
+
+        private PacketDecodeCompletedEventArgs mCompletedArgs = new PacketDecodeCompletedEventArgs();
+
+        private int mSize;
+
+
+        protected int CurrentSize => mSize;
+
+        protected abstract object OnRead(ISession session, PipeStream stream);
+
+        public void Decode(ISession session, System.IO.Stream stream)
+        {
+            PipeStream pstream = stream.ToPipeStream();
+        START:
+            object data;
+            if (mSize == 0)
+            {
+                if (SizeType == FixedSizeType.INT)
+                {
+                    if (pstream.Length < 4)
+                        return;
+                    mSize = pstream.ReadInt32();
+                }
+                else
+                {
+                    if (pstream.Length < 2)
+                        return;
+                    mSize = pstream.ReadInt16();
+                }
+            }
+            if (pstream.Length < mSize)
+                return;
+            data = OnRead(session, pstream);
+            mSize = 0;
+            Completed?.Invoke(this, mCompletedArgs.SetInfo(session, data));
+            goto START;
+
+        }
+
+
+        public virtual
+            void Dispose()
+        {
+
+        }
+
+        protected abstract void OnWrite(ISession session, object data, PipeStream stream);
+
+        private void OnEncode(ISession session, object data, System.IO.Stream stream)
+        {
+            PipeStream pstream = stream.ToPipeStream();
+            MemoryBlockCollection msgsize;
+            if (SizeType == FixedSizeType.INT)
+                msgsize = pstream.Allocate(4);
+            else
+                msgsize = pstream.Allocate(2);
+            int length = (int)pstream.CacheLength;
+            OnWrite(session, data, pstream);
+            if (SizeType == FixedSizeType.INT)
+            {
+                int len = (int)pstream.CacheLength - length;
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt32(len);
+                msgsize.Full(len);
+            }
+            else
+            {
+                short len = (short)(pstream.CacheLength - length);
+                if (!pstream.LittleEndian)
+                    len = BitHelper.SwapInt16(len);
+                msgsize.Full(len);
+            }
+
+        }
+
+        public byte[] Encode(object data, IServer server)
+        {
+            byte[] result = null;
+            using (Buffers.PipeStream stream = new PipeStream(server.SendBufferPool.Next(), server.Options.LittleEndian, server.Options.Encoding))
+            {
+                OnEncode(null, data, stream);
+                stream.Position = 0;
+                result = new byte[stream.Length];
+                stream.Read(result, 0, result.Length);
+            }
+            return result;
+        }
+
+        public ArraySegment<byte> Encode(object data, IServer server, byte[] buffer)
+        {
+            using (Buffers.PipeStream stream = new PipeStream(server.SendBufferPool.Next(), server.Options.LittleEndian, server.Options.Encoding))
+            {
+                OnEncode(null, data, stream);
+                stream.Position = 0;
+                int count = (int)stream.Length;
+                stream.Read(buffer, 0, count);
+                return new ArraySegment<byte>(buffer, 0, count);
+            }
+        }
+
+        public void Encode(object data, ISession session, System.IO.Stream stream)
+        {
+            OnEncode(session, data, stream);
+        }
+    }
+    //json packet
+    public class JsonPacket : BeetleX.Packets.FixedHeaderPacket
+    {
+        static JsonPacket()
+        {
+            TypeHeader.Register(typeof(JsonClientPacket).Assembly);
+        }
+        public static BeetleX.Packets.CustomTypeHeader TypeHeader { get; set; } = new BeetleX.Packets.CustomTypeHeader(BeetleX.Packets.MessageIDType.INT);
+
+        public override IPacket Clone()
+        {
+            return new JsonPacket();
+        }
+
+        protected override object OnRead(ISession session, PipeStream stream)
+        {
+            Type type = TypeHeader.ReadType(stream);
+            var size = CurrentSize - 4;
+            var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(size);
+            stream.Read(buffer, 0, size);
+            try
+            {
+                return SpanJson.JsonSerializer.NonGeneric.Utf8.Deserialize(new ReadOnlySpan<byte>(buffer, 0, size), type);
+            }
+            finally
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        protected override void OnWrite(ISession session, object data, PipeStream stream)
+        {
+            TypeHeader.WriteType(data, stream);
+            var buffer = SpanJson.JsonSerializer.NonGeneric.Utf8.SerializeToArrayPool(data);
+            try
+            {
+                stream.Write(buffer.Array, buffer.Offset, buffer.Count);
+            }
+            finally
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(buffer.Array);
+            }
+        }
+    }
+```
+
+
 ## Web Framework Benchmarks
 [Round 20](https://www.techempower.com/benchmarks/#section=data-r20&hw=ph&test=composite)
 ![benchmarks-round20](https://user-images.githubusercontent.com/2564178/107942248-eec41380-6fc5-11eb-94e4-410cadc8ae13.png)
