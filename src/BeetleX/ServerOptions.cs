@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Authentication;
 using System.Threading.Tasks;
 
 namespace BeetleX
@@ -76,10 +77,10 @@ namespace BeetleX
 
         public ServerOptions AddListenSSL(string certificateFile, string password, int port = 443)
         {
-            return AddListenSSL(certificateFile, password, null, port);
+            return AddListenSSL(certificateFile, password, null, null, port);
         }
 
-        public ServerOptions AddListenSSL(string certificateFile, string password, string host, int port = 443)
+        public ServerOptions AddListenSSL(string certificateFile, string password, SslProtocols? sslProtocols, string host, int port = 443)
         {
             ListenHandler listenOptions = new ListenHandler
             {
@@ -89,6 +90,8 @@ namespace BeetleX
                 CertificateFile = certificateFile,
                 CertificatePassword = password
             };
+            if (sslProtocols != null)
+                listenOptions.SslProtocols = sslProtocols.Value;
             Listens.Add(listenOptions);
             return this;
         }

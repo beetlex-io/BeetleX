@@ -321,6 +321,7 @@ namespace BeetleX.Buffers
             return result;
         }
 
+
         private int GetLength(IBuffer first, IBuffer last, int end)
         {
             int len = 0;
@@ -513,7 +514,7 @@ namespace BeetleX.Buffers
             Buffer.Free(mWriteFirstBuffer);
             mWriteFirstBuffer = null;
             mWriteLastBuffer = null;
-#if NETSTANDARD2_1
+#if !NETSTANDARD2_0
             mPipeStreamBufferWriter?.Dispose();
             mPipeStreamBufferWriter = null;
 #endif

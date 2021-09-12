@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 
 namespace BeetleX.Clients
 {
-    public class AwaiterClient : IAwaitObject, IClientSocketProcessHandler
+    public class AwaiterClient : IClientSocketProcessHandler
     {
         static AwaiterClient()
         {
-            AwaiterDispatchCenter = new Dispatchs.DispatchCenter<(AwaiterClient, object)>(OnProcess);
+
         }
 
         public AwaiterClient(string host, int port, IClientPacket packet, string sslServiceName = null)
@@ -41,20 +41,17 @@ namespace BeetleX.Clients
 
         private Queue<object> mQueues = new Queue<object>();
 
-        private static void OnProcess((AwaiterClient client, object result) item)
-        {
-            item.client.Success(item.result);
-        }
+
+        private TaskCompletionSource<object> mReceiveCompletionSource;
+
 
         private void OnError(IClient c, ClientErrorArgs e)
         {
             lock (mQueues)
             {
-                if (Pending)
-                {
-                    Pending = false;
-                    AwaiterDispatchCenter.Get(this).Enqueue((this, new Exception(e.Message, e.Error)));
-                }
+                var completed = mReceiveCompletionSource;
+                mReceiveCompletionSource = null;
+                Task.Run(() => completed?.TrySetException(e.Error));
             }
         }
 
@@ -62,10 +59,11 @@ namespace BeetleX.Clients
         {
             lock (mQueues)
             {
-                if (Pending)
+                if (mReceiveCompletionSource != null)
                 {
-                    Pending = false;
-                    AwaiterDispatchCenter.Get(this).Enqueue((this, message));
+                    var completed = mReceiveCompletionSource;
+                    mReceiveCompletionSource = null;
+                    Task.Run(() => completed?.TrySetResult(message));
                 }
                 else
                 {
@@ -89,10 +87,10 @@ namespace BeetleX.Clients
 
         public Func<AwaiterClient, Task> Connected { get; set; }
 
-        public Task<T> ReceiveFrom<T>(object data, bool autoConnect = true)
+        public async Task<T> ReceiveFrom<T>(object data, bool autoConnect = true)
         {
-            Send(data);
-            return Receive<T>(autoConnect);
+            await Send(data);
+            return await Receive<T>(autoConnect);
         }
 
         public async Task<T> Receive<T>(bool autoConnect = true)
@@ -101,17 +99,18 @@ namespace BeetleX.Clients
             return (T)result;
         }
 
-        public IAwaitObject Receive(bool autoConnect = true)
+        public async Task<object> Receive(bool autoConnect = true)
         {
+            TaskCompletionSource<object> resultAwaiter;
             if (autoConnect)
             {
-                bool isnew = false;
-                if (mClient.Connect(out isnew))
+                var result = await mClient.Connect();
+                if (result.Connected)
                 {
-                    if (isnew)
+                    if (result.NewConnection)
                     {
-                        var task = Connected?.Invoke(this);
-                        task?.Wait();
+                        await Connected?.Invoke(this);
+
                     }
                 }
                 else
@@ -121,31 +120,37 @@ namespace BeetleX.Clients
             }
             lock (mQueues)
             {
-                if (Pending)
-                {
-                    throw new BXException($"Awaiter client on pending!");
-                }
-                BeginReceive();
+
                 if (mQueues.Count > 0)
                 {
-                    Pending = false;
-                    Success(mQueues.Dequeue());
+                    return mQueues.Dequeue();
                 }
-                return this;
+                else
+                {
+                    mReceiveCompletionSource = new TaskCompletionSource<object>();
+                    resultAwaiter = mReceiveCompletionSource;
+                }
             }
+            if (resultAwaiter != null)
+            {
+                var msg = await resultAwaiter.Task;
+                return msg;
+                
+            }
+            return null;
         }
 
-        public async void Send(object data)
+        public async Task Send(object data)
         {
-            bool isnew = false;
-            if (mClient.Connect(out isnew))
+            var result = await mClient.Connect();
+            if (result.Connected)
             {
-                if (isnew)
+                if (result.NewConnection)
                 {
                     if (Connected != null)
                         await Connected(this);
                 }
-                mClient.Send(data);
+                await mClient.Send(data);
             }
             else
             {
@@ -153,71 +158,6 @@ namespace BeetleX.Clients
             }
         }
 
-        #region awaiter
-
-        private static readonly Action _callbackCompleted = () => { };
-
-        private Action _callback;
-
-        private Object mResult;
-
-        private void BeginReceive()
-        {
-            mResult = null;
-            _callback = null;
-            Pending = true;
-
-        }
-
-        public bool IsCompleted => ReferenceEquals(_callback, _callbackCompleted);
-
-        public object Result
-        {
-            get
-            {
-                if (mResult is Exception error)
-                    throw error;
-                return mResult;
-            }
-        }
-
-        public IAwaitObject GetAwaiter()
-        {
-            return this;
-        }
-
-        public object GetResult()
-        {
-            return Result;
-        }
-
-        public void OnCompleted(Action continuation)
-        {
-            if (ReferenceEquals(_callback, _callbackCompleted) ||
-                ReferenceEquals(Interlocked.CompareExchange(ref _callback, continuation, null), _callbackCompleted))
-            {
-                continuation();
-            }
-        }
-
-        public void Success(object data)
-        {
-            mResult = data;
-            var action = Interlocked.Exchange(ref _callback, _callbackCompleted);
-            if (action != null && action != _callbackCompleted)
-            {
-                action();
-            }
-        }
-
-        public void Error(Exception error)
-        {
-            Success(error);
-        }
-
-        public bool Pending { get; set; } = false;
-
-        #endregion
         public virtual void ReceiveCompleted(IClient client, SocketAsyncEventArgs e)
         {
             EventReceiveCompleted?.Invoke(this, e);

@@ -9,6 +9,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Net.Http.Headers;
+using System.Threading;
 
 namespace BeetleX.Clients
 {
@@ -64,7 +65,7 @@ namespace BeetleX.Clients
 
         void DisConnect();
 
-        bool Connect(out bool newConnection);
+        Task<ConnectStatus> Connect();
 
         int TimeOut
         {
@@ -184,8 +185,9 @@ namespace BeetleX.Clients
         {
             get
             {
-                bool isnew;
-                Connect(out isnew);
+                var timeout = Connect().Wait(10000);
+                if (!timeout)
+                    throw new BXException("connect timeout");
                 if (SSL)
                     return mSslStream;
                 else
@@ -210,10 +212,10 @@ namespace BeetleX.Clients
             return false;
         }
 
-        public TcpClient Send(Action<PipeStream> handler)
+        public async Task<TcpClient> Send(Action<PipeStream> handler)
         {
-            bool isnew;
-            Connect(out isnew);
+
+            await Connect();
             PipeStream stream = this.Stream.ToPipeStream();
             if (handler != null)
             {
@@ -232,7 +234,7 @@ namespace BeetleX.Clients
             mSocket.Connect(mIPAddress, mPort);
         }
 
-        private void OnConnect()
+        private async Task OnConnect()
         {
 
             var task = Task.Run(() => CreateSocket());
@@ -272,7 +274,7 @@ namespace BeetleX.Clients
                 mSslStream = new SslStreamX(BufferPool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
                 //var task = mSslStream.AuthenticateAsClientAsync(SslServiceName);
                 //task.Wait();
-                OnSslAuthenticate(mSslStream);
+                await OnSslAuthenticate(mSslStream);
                 mBaseNetworkStream.SSLConfirmed = true;
                 mSslStream.SyncData(null);
             }
@@ -285,28 +287,37 @@ namespace BeetleX.Clients
 
         public X509CertificateCollection CertificateCollection { get; private set; } = new X509CertificateCollection();
 
-        protected virtual void OnSslAuthenticate(SslStream sslStream)
+        protected virtual async Task OnSslAuthenticate(SslStream sslStream)
         {
-            Task task;
+
             if (SslProtocols == null)
                 SslProtocols = System.Security.Authentication.SslProtocols.Tls | System.Security.Authentication.SslProtocols.Tls11 |
                      System.Security.Authentication.SslProtocols.Tls12;
-            task = sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
-            task.Wait();
+            await sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
+
         }
 
-        public bool Connect(out bool newConnection)
+        public async Task<ConnectStatus> Connect()
         {
-            newConnection = false;
-            lock (this)
+            ConnectStatus result = new ConnectStatus();
+            result.NewConnection = false;
+
+            System.Threading.Monitor.Enter(this);
+            try
             {
                 if (!IsConnected)
                 {
-                    OnConnect();
-                    newConnection = true;
+                    await OnConnect();
+                    result.NewConnection = true;
                 }
             }
-            return mConnected;
+            finally
+            {
+                System.Threading.Monitor.Exit(this);
+            }
+
+            result.Connected = mConnected;
+            return result;
         }
 
         public void DisConnect()
@@ -337,11 +348,10 @@ namespace BeetleX.Clients
             }
         }
 
-        public TcpClient SendMessage(object msg)
+        public async Task<TcpClient> SendMessage(object msg)
         {
             IBuffer[] items;
-            bool isnew;
-            Connect(out isnew);
+            await Connect();
             lock (mBaseNetworkStream)
             {
                 BufferLink bufferLink = new BufferLink();
@@ -403,8 +413,10 @@ namespace BeetleX.Clients
 
         public T ReceiveMessage<T>()
         {
-            bool isnew;
-            Connect(out isnew);
+
+            var timeout = Connect().Wait(10000);
+            if (!timeout)
+                throw new BXException("connect timeout");
             mReceiveMessage = null;
             while (mReceiveMessage == null)
             {
@@ -423,8 +435,9 @@ namespace BeetleX.Clients
 
         private System.IO.Stream GetReader()
         {
-            bool isnew;
-            Connect(out isnew);
+            var timeout = Connect().Wait(10000);
+            if (!timeout)
+                throw new BXException("connect timeout");
             IBuffer buffer = this.BufferPool.Pop();
             try
             {
@@ -522,6 +535,15 @@ namespace BeetleX.Clients
 
         void SendCompleted(IClient client, SocketAsyncEventArgs e, bool end);
     }
+
+    public struct ConnectStatus
+    {
+
+        public bool Connected;
+
+        public bool NewConnection;
+    }
+
 
     public class AsyncTcpClient : IClient, IDisposable
     {
@@ -681,7 +703,6 @@ namespace BeetleX.Clients
             e.Message = message;
             try
             {
-                OnAwaiterError(e_);
                 ClientError?.Invoke(this, e);
 
             }
@@ -731,7 +752,6 @@ namespace BeetleX.Clients
                         }
                         item = DequeueSendMessage();
                     }
-                    OnAwaiterError(new SocketException((int)SocketError.ConnectionRefused));
                 }
                 catch
                 {
@@ -750,44 +770,6 @@ namespace BeetleX.Clients
             else
             {
                 SendCompleted(e);
-            }
-        }
-
-        public Task<PipeStream> Receive()
-        {
-            bool newConne;
-            if (!Connect(out newConne))
-                throw LastError;
-            lock (mLockReceive)
-            {
-                if (mAwaitReceive != mReceiveVersion)
-                {
-                    mAwaitReceive = mReceiveVersion;
-                    return Task.FromResult(Stream.ToPipeStream());
-                }
-                else
-                {
-                    mReceiveCompletionSource = new TaskCompletionSource<PipeStream>();
-                    return mReceiveCompletionSource.Task;
-                }
-            }
-        }
-
-        private void OnAwaiterError(Exception e_)
-        {
-            TaskCompletionSource<PipeStream> awaiter = null;
-            lock (mLockReceive)
-            {
-                if (mReceiveCompletionSource != null)
-                {
-                    mAwaitReceive = mReceiveVersion;
-                    awaiter = mReceiveCompletionSource;
-                    mReceiveCompletionSource = null;
-                }
-            }
-            if (awaiter != null)
-            {
-                AwaiterDispatchCenter.Get(this).Enqueue((awaiter, e_));
             }
         }
 
@@ -989,7 +971,8 @@ namespace BeetleX.Clients
             set;
         }
 
-        public int ConnectTimeOut { get; set; } = 1000 * 10;
+
+        public int ConnectTimeOut { get; set; } = 0;
 
         public Socket Socket
         {
@@ -1021,98 +1004,116 @@ namespace BeetleX.Clients
 
 
 
-        private void CreateSocket()
+        private Task CreateSocket()
         {
             mSocket = new Socket(mIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             if (LocalEndPoint != null)
                 mSocket.Bind(LocalEndPoint);
-            mSocket.Connect(mIPAddress, mPort);
+            return mSocket.ConnectAsync(mIPAddress, mPort);
 
         }
 
-        public bool Connect(out bool newConnection)
+
+        private SemaphoreSlim mConnectSemaphoreSlim = new SemaphoreSlim(1, 5);
+
+        public async Task<ConnectStatus> Connect()
         {
-            newConnection = false;
+            ConnectStatus result = new ConnectStatus();
+            result.Connected = false;
+            result.NewConnection = false;
             if (IsConnected)
-                return true;
+            {
+                result.Connected = true;
+                return result;
+            }
+            bool completed = false;
             try
             {
-                lock (this)
+                completed = await mConnectSemaphoreSlim.WaitAsync(20000);
+                if (!completed)
+                    throw new TimeoutException($"tcp connect {mIPAddress}@{mPort} timeout!");
+                if (!IsConnected)
                 {
-                    if (!IsConnected)
+                    mLastError = null;
+                    mBaseNetworkStream?.Dispose();
+                    mBaseNetworkStream = null;
+                    mSslStream?.Dispose();
+                    mSslStream = null;
+                    if (ConnectTimeOut > 0)
                     {
-                        mLastError = null;
-                        mBaseNetworkStream?.Dispose();
-                        mBaseNetworkStream = null;
-                        mSslStream?.Dispose();
-                        mSslStream = null;
-                        var task = Task.Run(() => CreateSocket());
+                        var task = Task.Run(async () => await CreateSocket());
                         if (!task.Wait(ConnectTimeOut))
                         {
                             mSocket?.Dispose();
                             throw new TimeoutException($"connect {mIPAddress}@{mPort} timeout! task status:{task.Status}");
                         }
-                        //if (LocalEndPoint == null)
-                        //    LocalEndPoint = mSocket.LocalEndPoint;
-                        mSocket.ReceiveTimeout = TimeOut;
-                        mSocket.SendTimeout = TimeOut;
-                        mConnected = true;
-                        mLastError = null;
-                        mBaseNetworkStream = new PipeStream(SendBufferPool, this.LittleEndian, this.Encoding);
-                        mBaseNetworkStream.Socket = mSocket;
-                        mBaseNetworkStream.Encoding = this.Encoding;
-                        mBaseNetworkStream.LittleEndian = this.LittleEndian;
-                        mBaseNetworkStream.FlashCompleted = OnWriterFlash;
-                        mSendStatus = 0;
-                        mReceiveArgs = new ClientReceiveArgs();
-                        mReceiveEventArgs?.Dispose();
-                        mReceiveEventArgs = new SocketAsyncEventArgsX();
-                        mReceiveEventArgs.Completed += IO_Completed;
-                        mSendEventArgs?.Dispose();
-                        mSendEventArgs = new SocketAsyncEventArgsX();
-                        mSendEventArgs.Completed += IO_Completed;
-                        if (this.Packet != null)
-                        {
-                            this.Packet = this.Packet.Clone();
-                            this.Packet.Completed = this.OnPacketCompleted;
-                        }
-                        if (SSL)
-                        {
-                            mBaseNetworkStream.SSL = true;
-                            mSslStream = new SslStreamX(ReceiveBufferPool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
-                            //var task = mSslStream.AuthenticateAsClientAsync(SslServiceName);
-                            //task.Wait();
-                            OnSslAuthenticate(mSslStream);
-                            mBaseNetworkStream.SSLConfirmed = true;
-                            mSslStream.SyncData(OnReceive);
-                        }
-                        if (AutoReceive)
-                            BeginReceive();
-                        if (IsConnected)
-                            OnConnected();
-                        newConnection = true;
                     }
+                    else
+                    {
+                        await CreateSocket();
+                    }
+                    mSocket.ReceiveTimeout = TimeOut;
+                    mSocket.SendTimeout = TimeOut;
+                    mConnected = true;
+                    mLastError = null;
+                    mBaseNetworkStream = new PipeStream(SendBufferPool, this.LittleEndian, this.Encoding);
+                    mBaseNetworkStream.Socket = mSocket;
+                    mBaseNetworkStream.Encoding = this.Encoding;
+                    mBaseNetworkStream.LittleEndian = this.LittleEndian;
+                    mBaseNetworkStream.FlashCompleted = OnWriterFlash;
+                    mSendStatus = 0;
+                    mReceiveArgs = new ClientReceiveArgs();
+                    mReceiveEventArgs?.Dispose();
+                    mReceiveEventArgs = new SocketAsyncEventArgsX();
+                    mReceiveEventArgs.Completed += IO_Completed;
+                    mSendEventArgs?.Dispose();
+                    mSendEventArgs = new SocketAsyncEventArgsX();
+                    mSendEventArgs.Completed += IO_Completed;
+                    if (this.Packet != null)
+                    {
+                        this.Packet = this.Packet.Clone();
+                        this.Packet.Completed = this.OnPacketCompleted;
+                    }
+                    if (SSL)
+                    {
+                        mBaseNetworkStream.SSL = true;
+                        mSslStream = new SslStreamX(ReceiveBufferPool, this.Encoding, this.LittleEndian, mBaseNetworkStream, new RemoteCertificateValidationCallback(ValidateServerCertificate));
+                        await OnSslAuthenticate(mSslStream);
+                        mBaseNetworkStream.SSLConfirmed = true;
+                        mSslStream.SyncData(OnReceive);
+                    }
+                    if (AutoReceive)
+                        BeginReceive();
+                    if (IsConnected)
+                        OnConnected();
+                    result.NewConnection = true;
                 }
+
             }
             catch (Exception e_)
             {
                 mConnected = false;
                 ProcessError(e_, $"client connect to server error {e_.Message}!");
             }
-            return mConnected;
+            finally
+            {
+                if (completed)
+                    mConnectSemaphoreSlim.Release();
+            }
+            result.Connected = mConnected;
+            return result;
         }
         public SslProtocols? SslProtocols { get; set; } = System.Security.Authentication.SslProtocols.Tls11 | System.Security.Authentication.SslProtocols.Tls12;
 
         public X509CertificateCollection CertificateCollection { get; private set; } = new X509CertificateCollection();
 
-        protected virtual void OnSslAuthenticate(SslStream sslStream)
+        protected virtual async Task OnSslAuthenticate(SslStream sslStream)
         {
-            Task task;
             if (SslProtocols == null)
                 SslProtocols = System.Security.Authentication.SslProtocols.Tls | System.Security.Authentication.SslProtocols.Tls11 |
                      System.Security.Authentication.SslProtocols.Tls12;
-            task = sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
-            task.Wait();
+            await sslStream.AuthenticateAsClientAsync(SslServiceName, CertificateCollection.Count > 0 ? CertificateCollection : null, SslProtocols.Value, false);
+
         }
 
         private void OnDisconnected()
@@ -1165,10 +1166,9 @@ namespace BeetleX.Clients
 
 
 
-        public AsyncTcpClient Send(Action<PipeStream> writeHandler)
+        public async Task<AsyncTcpClient> Send(Action<PipeStream> writeHandler)
         {
-            bool isconnect;
-            Connect(out isconnect);
+            var status = await Connect();
             if (!IsConnected)
                 throw mLastError;
             if (writeHandler != null)
@@ -1181,10 +1181,9 @@ namespace BeetleX.Clients
             return this;
         }
 
-        public AsyncTcpClient BatchSend(System.Collections.IEnumerable items)
+        public async Task<AsyncTcpClient> BatchSend(System.Collections.IEnumerable items)
         {
-            bool isconnect;
-            Connect(out isconnect);
+            var status = await Connect();
             if (!IsConnected)
                 throw mLastError;
             foreach (object item in items)
@@ -1195,10 +1194,10 @@ namespace BeetleX.Clients
             return this;
         }
 
-        public AsyncTcpClient Send(object data)
+        public async Task<AsyncTcpClient> Send(object data)
         {
-            bool isconnect;
-            if (Connect(out isconnect))
+            var status = await Connect();
+            if (status.Connected)
             {
                 EnqueueSendMessage(data);
                 ProcessSendMessages();
@@ -1381,8 +1380,12 @@ namespace BeetleX.Clients
         {
             get
             {
-                bool isnew;
-                if (Connect(out isnew))
+                var task = Connect();
+                if (!task.Wait(10000))
+                {
+                    throw new BXException("connect timeout!");
+                }
+                if (task.Result.Connected)
                 {
                     if (SSL)
                         return mSslStream;

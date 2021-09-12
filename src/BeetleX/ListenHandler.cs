@@ -17,14 +17,13 @@ namespace BeetleX
 
         public string CertificateFile { get; set; }
 
-        public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12;
+        public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls11 | SslProtocols.Tls12;
 
         public string CertificatePassword { get; set; }
 
         public string Name { get; set; }
 
         public string Tag { get; set; }
-
 
         public bool SyncAccept { get; set; } = false;
 
@@ -79,6 +78,22 @@ namespace BeetleX
             BeginListen();
         }
 
+        private IPAddress MatchIPAddress(string matchIP)
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    if (ip.ToString().IndexOf(matchIP) == 0)
+                    {
+                        return ip;
+                    }
+                }
+            }
+            throw new Exception($"No {matchIP} IPv4 address in the system!");
+        }
+
         private void BeginListen()
         {
             try
@@ -97,7 +112,15 @@ namespace BeetleX
                 }
                 else
                 {
-                    address = System.Net.IPAddress.Parse(Host);
+                    if (Host.EndsWith("*"))
+                    {
+                        address = MatchIPAddress(Host.Replace("*", ""));
+                        Host = address.ToString();
+                    }
+                    else
+                    {
+                        address = System.Net.IPAddress.Parse(Host);
+                    }
                 }
                 IPEndPoint = new System.Net.IPEndPoint(address, Port);
                 Socket = new Socket(IPEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);

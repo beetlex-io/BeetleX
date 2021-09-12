@@ -89,6 +89,9 @@ namespace BeetleX
         AuthenticationType Authentication
         { get; set; }
 
+        T Token<T>()
+            where T : ISessionToken, new();
+
     }
 
     public enum AuthenticationType : int

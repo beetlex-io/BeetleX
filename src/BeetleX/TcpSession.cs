@@ -141,6 +141,19 @@ namespace BeetleX
             return result;
         }
 
+        private void OnDisposeProperties()
+        {
+            foreach (var item in mProperties.Values)
+            {
+                try
+                {
+                    ((IDisposable)item)?.Dispose();
+                }
+                catch { }
+            }
+            mProperties.Clear();
+        }
+
         protected virtual void OnDispose()
         {
             try
@@ -151,7 +164,6 @@ namespace BeetleX
                     if (data is IBuffer buffer)
                     {
                         BeetleX.Buffers.Buffer.Free(buffer);
-                        //((IBuffer)data).Free();
                     }
                     data = DequeueSendMessage();
                 }
@@ -165,15 +177,21 @@ namespace BeetleX
                 if (mSslStream != null)
                     mSslStream.Dispose();
                 Server.CloseSession(this);
-                //Server = null;
                 ListenHandler = null;
                 ReceiveDispatcher = null;
                 if (Packet != null)
                     Packet.Dispose();
-                mProperties.Clear();
+                ((IDisposable)Tag)?.Dispose();
+                OnDisposeProperties();
+                ((IDisposable)mToken)?.Dispose();
             }
             catch
             {
+            }
+            finally
+            {
+                Tag = null;
+                mToken = null;
             }
         }
 
@@ -323,7 +341,7 @@ namespace BeetleX
             {
                 Buffers.Buffer.Free(buffer);
                 if (Server.EnableLog(EventArgs.LogType.Warring))
-                    Server.Log(EventArgs.LogType.Warring,this, "{0} session send data error {1}!", this.RemoteEndPoint, e_.Message);
+                    Server.Log(EventArgs.LogType.Warring, this, "{0} session send data error {1}!", this.RemoteEndPoint, e_.Message);
             }
         }
 
@@ -427,7 +445,7 @@ namespace BeetleX
                 mSslStream = new SslStreamX(this.SendBufferPool, server.Options.Encoding,
                     server.Options.LittleEndian, mBaseNetStream, false);
 
-                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, listen.SslProtocols,true, new AsyncCallback(asyncCallback),
+                mSslStream.BeginAuthenticateAsServer(listen.Certificate, false, listen.SslProtocols, true, new AsyncCallback(asyncCallback),
                      new Tuple<TcpSession, SslStream>(this, this.mSslStream));
             }
             catch (Exception e_)
@@ -436,6 +454,27 @@ namespace BeetleX
                     server.Log(EventArgs.LogType.Warring, this, $"{this.RemoteEndPoint} create session ssl error {e_.Message}@{e_.StackTrace}");
                 this.Dispose();
             }
+        }
+
+        private object mToken;
+
+        private object mLockCreateToken = new object();
+
+        public T Token<T>() where T : ISessionToken, new()
+        {
+            if (mToken != null)
+            {
+                return (T)mToken;
+            }
+            lock (mLockCreateToken)
+            {
+                if (mToken == null)
+                {
+                    mToken = new T();
+                    ((ISessionToken)mToken).Init(this);
+                }
+            }
+            return (T)mToken;
         }
     }
 }

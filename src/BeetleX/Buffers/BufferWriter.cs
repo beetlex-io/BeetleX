@@ -5,7 +5,7 @@ using System.Text;
 
 namespace BeetleX.Buffers
 {
-#if NETSTANDARD2_1
+#if !NETSTANDARD2_0
 
     class PipeStreamBufferWriter : IBufferWriter<byte>, IDisposable
     {

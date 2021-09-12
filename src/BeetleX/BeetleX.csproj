@@ -1,20 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netcoreapp2.1;netcoreapp3.1;net5.0</TargetFrameworks>
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.6.5.41</AssemblyVersion>
-    <FileVersion>1.6.5.41</FileVersion>
-    <Version>1.6.5.41</Version>
+    <AssemblyVersion>1.6.8.0</AssemblyVersion>
+    <FileVersion>1.6.8.0</FileVersion>
+    <Version>1.6.8</Version>
     <Description>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</Description>
     <Copyright>Copyright © 2019-2021  beetlex.io</Copyright>
     <PackageProjectUrl>https://github.com/beetlex-io/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/IKende/FastHttpApi/blob/master/LICENSE</PackageLicenseUrl>
     <Company>beetlex.io</Company>
     <LangVersion>7.3</LangVersion>
-    <SignAssembly>false</SignAssembly>
+    <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>beetlex.pfx</AssemblyOriginatorKeyFile>
     <PackageReleaseNotes>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
@@ -41,6 +41,10 @@
     <Compile Remove="Blocks\**" />
     <EmbeddedResource Remove="Blocks\**" />
     <None Remove="Blocks\**" />
+    <None Include="..\..\..\..\beetlex200.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

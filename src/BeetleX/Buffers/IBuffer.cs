@@ -705,7 +705,9 @@ namespace BeetleX.Buffers
             //var span = Memory.Span.Slice(s, mLength - s);
             //var index = span.IndexOf(data);
             //if (index >= 0)
-            //    return mPostion + index;
+            //{
+            //    return s + index;
+            //}
             for (int i = s; i < mLength; i++)
             {
                 if (mBufferData[i] == data)
