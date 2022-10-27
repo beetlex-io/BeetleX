@@ -262,8 +262,11 @@ namespace BeetleX
                 Status = ServerStatus.Start;
                 foreach (ListenHandler item in this.Options.Listens)
                 {
-                    item.SyncAccept = Options.SyncAccept;
-                    item.Run(this, OnListenAcceptCallBack);
+                    if (item.Enabled)
+                    {
+                        item.SyncAccept = Options.SyncAccept;
+                        item.Run(this, OnListenAcceptCallBack);
+                    }
                 }
                 if (!GCSettings.IsServerGC)
                 {
@@ -340,7 +343,8 @@ namespace BeetleX
             logo += " -----------------------------------------------------------------------------\r\n";
             foreach (var item in this.Options.Listens)
             {
-                logo += $" {item}\r\n";
+                if(item.Enabled)
+                    logo += $" {item}\r\n";
             }
             logo += " -----------------------------------------------------------------------------\r\n";
             Log(LogType.Info, null, logo);
@@ -370,7 +374,7 @@ namespace BeetleX
             try
             {
                 if (server.EnableLog(LogType.Info))
-                    server.Log(LogType.Info, session, "{0} end ssl Authenticate", session.RemoteEndPoint);
+                    server.Log(LogType.Info, session, "ssl authenticate completed");
                 SslStream sslStream = state.Item2;
                 sslStream.EndAuthenticateAsServer(ar);
                 EventArgs.ConnectedEventArgs cead = new EventArgs.ConnectedEventArgs();
@@ -427,7 +431,7 @@ namespace BeetleX
             else
             {
                 if (EnableLog(LogType.Info))
-                    Log(LogType.Info, session, "{0} begin ssl Authenticate", session.RemoteEndPoint);
+                    Log(LogType.Info, session, "ssl Authenticate");
                 session.CreateSSL(SslAuthenticateAsyncCallback, e.Listen, this);
             }
         }
@@ -486,11 +490,11 @@ namespace BeetleX
         private void BeginReceive(ISession session)
         {
             if (EnableLog(LogType.Info))
-                Log(LogType.Info, session, "{0} begin receive", session.RemoteEndPoint);
+                Log(LogType.Info, session, "begin receive");
             if (session.IsDisposed)
             {
                 if (EnableLog(LogType.Info))
-                    Log(LogType.Info, session, $"{session.RemoteEndPoint} begin receive cancel connection disposed");
+                    Log(LogType.Info, session, $"begin receive cancel connection disposed");
                 return;
             }
             Buffers.Buffer buffer = null;
@@ -503,7 +507,7 @@ namespace BeetleX
             {
                 buffer?.Free();
                 if (EnableLog(LogType.Warring))
-                    Log(LogType.Warring, session, $"{session.RemoteEndPoint} receive data error {e_.Message}@{e_.StackTrace}");
+                    Log(LogType.Warring, session, $"receive data error {e_.Message}@{e_.StackTrace}");
                 session.Dispose();
             }
         }
@@ -528,13 +532,11 @@ namespace BeetleX
             try
             {
                 if (EnableLog(LogType.Info))
-                    Log(LogType.Info, session, $"{session.RemoteEndPoint} receive {e.BytesTransferred} length completed");
+                    Log(LogType.Info, session, $"receive {e.BytesTransferred} length bytes");
 
                 if (EnableLog(LogType.Trace))
                 {
-                    Log(LogType.Trace, session, "{0} receive hex:{1}", session.RemoteEndPoint,
-                         BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
-                        );
+                    Log(LogType.Trace, session, $"receive hex:{ BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()}");
                 }
                 if (this.Options.Statistical)
                 {
@@ -550,7 +552,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Warring))
-                    Log(LogType.Warring, session, $"{session.RemoteEndPoint} receive data completed socket error {e.SocketError} {e_.Message}@{e_.StackTrace}");
+                    Log(LogType.Warring, session, $"receive data completed error {e.SocketError} {e_.Message}@{e_.StackTrace}");
             }
             finally
             {
@@ -581,7 +583,7 @@ namespace BeetleX
                 {
                     ex.BufferX?.Free();
                     if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, session, $"{session.RemoteEndPoint} receive close error {e.SocketError} receive:{e.BytesTransferred}");
+                        Log(LogType.Debug, session, $"receive error {e.SocketError} receive:{e.BytesTransferred}, session close!");
                     session.Dispose();
 
                 }
@@ -589,7 +591,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Warring))
-                    Log(LogType.Warring, session, $"{session.RemoteEndPoint} receive data completed socket error {e.SocketError} {e_.Message}@{e_.StackTrace}");
+                    Log(LogType.Warring, session, $"receive data completed error {e.SocketError} {e_.Message}@{e_.StackTrace}");
             }
 
         }
@@ -607,9 +609,7 @@ namespace BeetleX
                     if (session.Server.EnableLog(LogType.Trace))
                     {
                         if (ex.BufferX != null)
-                            session.Server.Log(LogType.Trace, session, "{0} send hex:{1}", session.RemoteEndPoint,
-                                 BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()
-                                );
+                            session.Server.Log(LogType.Trace, session, $"send hex:{BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()}");
                     }
                     if (this.Options.Statistical)
                     {
@@ -643,7 +643,7 @@ namespace BeetleX
                             catch (Exception ce_)
                             {
                                 if (EnableLog(LogType.Error))
-                                    Error(ce_, ex.Session, "{0} send data completed process handler error {1}!", ex.Session.RemoteEndPoint, ce_.Message);
+                                    Error(ce_, ex.Session, $"send data completed process handler error {ce_.Message}!");
                             }
                         }
                         if (nextbuf != null)
@@ -660,7 +660,7 @@ namespace BeetleX
                 else
                 {
                     if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, session, $"{session.RemoteEndPoint} send close error {e.SocketError} receive:{e.BytesTransferred}");
+                        Log(LogType.Debug, session, $"send error {e.SocketError} receive:{e.BytesTransferred}, session close!");
                     Buffers.Buffer.Free(buffer);
                     session.Dispose();
                 }
@@ -668,7 +668,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Warring))
-                    Log(LogType.Warring, session, $"{session.RemoteEndPoint} send data completed socket error {e.SocketError} {e_.Message}@{e_.StackTrace}");
+                    Log(LogType.Warring, session, $"send data completed error {e.SocketError} {e_.Message}@{e_.StackTrace}");
             }
 
         }
@@ -686,7 +686,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Error))
-                    Error(e_, null, "detection session  process error");
+                    Error(e_, null, "detection session process error");
             }
         }
 
@@ -703,7 +703,7 @@ namespace BeetleX
                 catch (Exception e_)
                 {
                     if (EnableLog(LogType.Error))
-                        Error(e_, e.Session, "{0} session  buffer decoding error! ", e.Session.RemoteEndPoint);
+                        Error(e_, e.Session, "session buffer decoding error! ");
                     e.Session.Dispose();
                 }
             }
@@ -717,7 +717,7 @@ namespace BeetleX
                 catch (Exception e_)
                 {
                     if (EnableLog(LogType.Error))
-                        Error(e_, e.Session, "{0} session  buffer process error! ", e.Session.RemoteEndPoint);
+                        Error(e_, e.Session, "session buffer process error! ");
                 }
             }
 
@@ -730,7 +730,7 @@ namespace BeetleX
                 if (Handler != null)
                 {
                     if (EnableLog(LogType.Debug))
-                        Log(LogType.Debug, e.Session, "{0} session packet decode completed {1}", e.Session.RemoteEndPoint, e.Message.GetType());
+                        Log(LogType.Debug, e.Session, $"session packet decode completed {e.Message.GetType()}");
                     Handler.SessionPacketDecodeCompleted(this, e);
 
                 }
@@ -738,7 +738,7 @@ namespace BeetleX
             catch (Exception e_)
             {
                 if (EnableLog(LogType.Error))
-                    Error(e_, e.Session, "{0} session packet  message process error !", e.Session.RemoteEndPoint);
+                    Error(e_, e.Session, "session packet message process error !");
             }
         }
 
@@ -925,7 +925,7 @@ namespace BeetleX
                 session.TimeOut = GetRunTime() + Options.SessionTimeOut * 1000;
             if (EnableLog(LogType.Debug))
             {
-                Log(LogType.Debug, session, "{0} update active time", session.RemoteEndPoint);
+                Log(LogType.Debug, session, "update active time");
             }
         }
 
@@ -984,7 +984,7 @@ namespace BeetleX
             {
                 foreach (ListenHandler item in Options.Listens)
                 {
-                    sb.AppendFormat($"Listen @ {item.IPEndPoint}\r\n");
+                    sb.AppendFormat($"Listen @ {item.EndPoint}\r\n");
                 }
                 sb.AppendFormat("Connections:{0}    \r\n",
                     Count.ToString("###,###,##0").PadLeft(15));

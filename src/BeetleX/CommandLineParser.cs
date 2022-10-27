@@ -183,7 +183,7 @@ namespace BeetleX
                 return;
             if (Required && string.IsNullOrEmpty(value))
             {
-                throw new ParserException($"{ShortName} Parameter required!");
+                throw new ParserException($"{ShortName} parameter required!");
             }
 
             object data = null;

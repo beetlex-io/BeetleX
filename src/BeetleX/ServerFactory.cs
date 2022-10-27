@@ -105,5 +105,64 @@ namespace BeetleX
             }
 
         }
+
+        public static UnixSocketUri GetUnixSocketUrl(string host)
+        {
+            UnixSocketUri result = new UnixSocketUri();
+            result.IsUnixSocket = false;
+            if (string.IsNullOrEmpty(host))
+                return result;
+            var index = host.IndexOf(".sock", StringComparison.OrdinalIgnoreCase);
+            if (index > 0)
+            {
+                var values = host.Split(':');
+                if (values.Length > 1)
+                {
+                    result.Protocol = values[0].ToLower();
+                    host = values[1];
+                    index = host.IndexOf(".sock", StringComparison.OrdinalIgnoreCase);
+                }
+                result.IsUnixSocket = true;
+                if (index + 5 == host.Length)
+                {
+                    result.SockFile = host;
+                }
+                else
+                {
+                    result.SockFile = host.Substring(0, index + 5);
+                    result.PathAndQuery = host.Substring(index + 5);
+                }
+            }
+            return result;
+        }
+
+
+        internal static void CloseSocket(System.Net.Sockets.Socket socket)
+        {
+            try
+            {
+                socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
+            }
+            catch
+            {
+            }
+            try
+            {
+                socket.Dispose();
+
+            }
+            catch
+            {
+
+            }
+
+        }
+    }
+    public struct UnixSocketUri
+    {
+        public bool IsUnixSocket;
+        public string SockFile;
+        public string PathAndQuery;
+        public string Protocol;
     }
 }

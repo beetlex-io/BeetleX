@@ -31,11 +31,15 @@ namespace BeetleX
 
         public Socket Socket { get; internal set; }
 
-        public IPEndPoint IPEndPoint { get; private set; }
+        public EndPoint EndPoint { get; private set; }
+
+        public bool IsUnixDomainSocket { get; set; } = false;
 
         public bool ReuseAddress { get; set; } = false;
 
         public IServer Server { get; internal set; }
+
+        public bool Enabled { get; set; } = true;
 
         public X509Certificate2 Certificate { get; internal set; }
 
@@ -93,11 +97,41 @@ namespace BeetleX
             }
             throw new Exception($"No {matchIP} IPv4 address in the system!");
         }
-
+#if !NETSTANDARD2_0
+        private void ListenUnixDomainSocket(UnixSocketUri uri)
+        {
+            //this.recvSocket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            EndPoint = new UnixDomainSocketEndPoint(uri.SockFile);
+            Socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            Socket.Bind(EndPoint);
+            Socket.Listen(512);
+            if (Server.EnableLog(EventArgs.LogType.Info))
+                Server.Log(EventArgs.LogType.Info, null, $"listen unix domain socket {Host} success");
+            if (SyncAccept)
+            {
+                System.Threading.ThreadPool.QueueUserWorkItem((o) => OnSyncAccept());
+            }
+            else
+            {
+                OnAsyncAccept();
+            }
+        }
+#endif
         private void BeginListen()
         {
             try
             {
+#if !NETSTANDARD2_0
+                var unixSocket = SocketFactory.GetUnixSocketUrl(Host);
+                if (unixSocket.IsUnixSocket)
+                {
+                    if (System.IO.File.Exists(unixSocket.SockFile))
+                        System.IO.File.Delete(unixSocket.SockFile);
+                    IsUnixDomainSocket = true;
+                    ListenUnixDomainSocket(unixSocket);
+                    return;
+                }
+#endif
                 System.Net.IPAddress address;
                 if (string.IsNullOrEmpty(Host))
                 {
@@ -122,9 +156,11 @@ namespace BeetleX
                         address = System.Net.IPAddress.Parse(Host);
                     }
                 }
-                IPEndPoint = new System.Net.IPEndPoint(address, Port);
-                Socket = new Socket(IPEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                if (IPEndPoint.Address == IPAddress.IPv6Any)
+
+                var ipaddress = new System.Net.IPEndPoint(address, Port);
+                EndPoint = ipaddress;
+                Socket = new Socket(EndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                if (ipaddress.Address == IPAddress.IPv6Any)
                 {
                     Socket.DualMode = true;
                 }
@@ -132,7 +168,7 @@ namespace BeetleX
                 {
                     Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 }
-                Socket.Bind(IPEndPoint);
+                Socket.Bind(EndPoint);
                 Socket.Listen(512);
                 if (Server.EnableLog(EventArgs.LogType.Info))
                     Server.Log(EventArgs.LogType.Info, null, $"listen {Host}@{Port} success ssl:{SSL}");
@@ -241,7 +277,10 @@ namespace BeetleX
 
         public override string ToString()
         {
-            return $"Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
+            if(!IsUnixDomainSocket)
+                return $"[ TCP socket]Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
+            else
+                return $"[Unix socket]Listen {Host}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
         }
 
         public void Dispose()

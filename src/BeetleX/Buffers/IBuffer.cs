@@ -683,7 +683,7 @@ namespace BeetleX.Buffers
             argsX.AsyncTo(session, UserToken, mLength);
         }
 
-        internal static void Free(IBuffer buffer)
+        public static void Free(IBuffer buffer)
         {
             if (buffer != null)
             {

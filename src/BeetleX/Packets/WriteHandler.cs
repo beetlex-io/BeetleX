@@ -74,13 +74,6 @@ namespace BeetleX
             session.Send(this);
         }
 
-        public void To(Clients.TcpClient client)
-        {
-            var pipestream = client.Stream.ToPipeStream();
-            Write(pipestream);
-            client.Stream.Flush();
-        }
-
         public void To(Clients.AsyncTcpClient client)
         {
             client.Send(this);
