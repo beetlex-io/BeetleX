@@ -24,7 +24,42 @@ high performance dotnet core socket tcp communication components,  support TCP, 
 ## Web Framework Benchmarks
 [Round 20](https://www.techempower.com/benchmarks/#section=data-r20&hw=ph&test=composite)
 ![benchmarks-round20](https://user-images.githubusercontent.com/2564178/107942248-eec41380-6fc5-11eb-94e4-410cadc8ae13.png)
+## ServerBuilder
+``` csharp
+server = new ServerBuilder<Program>();
+server.SetOptions(option =>
+{
+    option.DefaultListen.Port = 9090;
+    option.DefaultListen.Host = "127.0.0.1";
+})
+.OnStreamReceive((session, stream, token) =>
+{
+    if (stream.TryReadLine(out string name))
+    {
+        Console.WriteLine(name);
+        session.Stream.ToPipeStream().WriteLine("hello " + name);
+        session.Stream.Flush();
+    }
+})
+.Run();
 
+server = new ServerBuilder<Messages.JsonPacket, Program>();
+server.SetOptions(option =>
+{
+    option.DefaultListen.Port = 9090;
+    option.DefaultListen.Host = "127.0.0.1";
+})
+.OnMessageReceive<Messages.Register>((session, msg, token) =>
+{
+    msg.DateTime = DateTime.Now;
+    session.Send(msg);
+})
+.OnMessageReceive((session, msg, token) => { 
+            
+})
+.Run();
+
+```
 ## Base server
 ``` csharp
 class Program : ServerHandlerBase
