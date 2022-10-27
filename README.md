@@ -86,7 +86,7 @@ class Program : ServerHandlerBase
     }
 }
 ```
-## ssl server
+## SSL
 ``` csharp
 class Program : ServerHandlerBase
 {
@@ -111,7 +111,7 @@ class Program : ServerHandlerBase
 }
 ```
 
-## custom packet
+## Custom packet
 ``` csharp
     public abstract class FixedHeaderPacket : IPacket
     {
@@ -277,4 +277,40 @@ class Program : ServerHandlerBase
         }
     }
 ```
-
+## Client
+```csharp
+AsyncTcpClient client = SocketFactory.CreateClient<AsyncTcpClient>("127.0.0.1", 9090);
+client.DataReceive = (o, e) =>
+{
+    var pipestream = e.Stream.ToPipeStream();
+    if (pipestream.TryReadLine(out string line))
+    {
+        Console.WriteLine(line);
+    }
+};
+client.ClientError = (o, e) =>
+{
+    Console.WriteLine(e.Error.Message);
+};
+BytesHandler line = Console.ReadLine() + "\r\n";
+client.Send(line);
+```
+## AwaiterClient
+``` csharp
+var client = new AwaiterClient("127.0.0.1", 9090, new Messages.JsonClientPacket());
+while (true)
+{
+    Messages.Register register = new Messages.Register();
+    Console.Write("Enter Name:");
+    register.Name = Console.ReadLine();
+    Console.Write("Enter Email:");
+    register.EMail = Console.ReadLine();
+    Console.Write("Enter City:");
+    register.City = Console.ReadLine();
+    Console.Write("Enter Password:");
+    register.PassWord = Console.ReadLine();
+    await client.Send(register);
+    var result = await client.Receive<Messages.Register>();
+    Console.WriteLine($"{result.Name} {result.EMail} {result.City} {result.DateTime}");
+}
+```
