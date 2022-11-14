@@ -28,38 +28,96 @@ high performance dotnet core socket tcp communication components,  support TCP, 
 ![benchmarks-round20](https://user-images.githubusercontent.com/2564178/107942248-eec41380-6fc5-11eb-94e4-410cadc8ae13.png)
 ## ServerBuilder
 ``` csharp
-server = new ServerBuilder<Program>();
-server.SetOptions(option =>
-{
-    option.DefaultListen.Port = 9090;
-    option.DefaultListen.Host = "127.0.0.1";
-})
-.OnStreamReceive((session, stream, token) =>
-{
-    if (stream.TryReadLine(out string name))
+    class Program : IApplication
     {
-        Console.WriteLine(name);
-        session.Stream.ToPipeStream().WriteLine("hello " + name);
-        session.Stream.Flush();
-    }
-})
-.Run();
+        private static ServerBuilder<Program, User> server;
+        public static void Main(string[] args)
+        {
+            server = new ServerBuilder<Program, User>();
+            server.SetOptions(option =>
+            {
+                option.DefaultListen.Port = 9090;
+                option.DefaultListen.Host = "127.0.0.1";
+            })
+            .OnStreamReceive(e =>
+            {
+                Console.WriteLine($"session:{e.Session}\t application:{e.Application}");
+                if (e.Reader.TryReadLine(out string name))
+                {
+                    Console.WriteLine(name);
+                    e.Writer.WriteLine("hello " + name);
+                    e.Flush();
+                }
+            })
+            .Run();
+            Console.Read();
+        }
 
-server = new ServerBuilder<Messages.JsonPacket, Program>();
-server.SetOptions(option =>
-{
-    option.DefaultListen.Port = 9090;
-    option.DefaultListen.Host = "127.0.0.1";
-})
-.OnMessageReceive<Messages.Register>((session, msg, token) =>
-{
-    msg.DateTime = DateTime.Now;
-    session.Send(msg);
-})
-.OnMessageReceive((session, msg, token) => { 
-            
-})
-.Run();
+        public void Init(IServer server)
+        {
+            Console.WriteLine("application init");
+        }
+    }
+
+    public class User : ISessionToken
+    {
+        public void Dispose()
+        {
+
+        }
+
+        public void Init(IServer server, ISession session)
+        {
+            Console.WriteLine("session token init");
+        }
+    }
+
+    public class Program : IApplication
+    {
+        private static ServerBuilder<Program, User, Messages.JsonPacket> server;
+        public static void Main(string[] args)
+        {
+
+            server = new ServerBuilder<Program, User, Messages.JsonPacket>();
+            server.ConsoleOutputLog = true;
+            server.SetOptions(option =>
+            {
+                option.DefaultListen.Port = 9090;
+                option.DefaultListen.Host = "127.0.0.1";
+                option.LogLevel = LogType.Trace;
+            })
+            .OnMessageReceive<Messages.Register>((e) =>
+            {
+                Console.WriteLine($"application:{e.Application}\t session:{e.Session}");
+                e.Message.DateTime = DateTime.Now;
+                e.Return(e.Message);
+            })
+            .OnMessageReceive((e) =>
+            {
+
+            })
+            .Run();
+            Console.Read();
+        }
+
+        public void Init(IServer server)
+        {
+            Console.WriteLine("application init");
+        }
+    }
+
+    public class User : ISessionToken
+    {
+        public void Dispose()
+        {
+            Console.WriteLine("client disposed");
+        }
+
+        public void Init(IServer server, ISession session)
+        {
+            Console.WriteLine("session init");
+        }
+    }
 
 ```
 ## Base server
