@@ -8,56 +8,128 @@ using System.Threading.Tasks;
 namespace BeetleX
 {
 
-    public class ServerBuilder<Packet, Token> : ServerBuilder<Token>
-    where Token : new()
-        where Packet : IPacket, new()
+    public interface IApplication
+    {
+        void Init(IServer server);
+    }
+
+
+    public struct EventMessageReceiveArgs<APPLICATION, SESSION, MSG>
+  where SESSION : ISessionToken
+where APPLICATION : IApplication
+    {
+        public ISession NetSession { get; set; }
+
+        public SESSION Session { get; set; }
+
+        public APPLICATION Application { get; set; }
+
+        public MSG Message { get; set; }
+
+        public void Return(object message)
+        {
+            NetSession.Send(message);
+        }
+    }
+
+    public struct EventStreamReceiveArgs<APPLICATION, SESSION>
+      where SESSION : ISessionToken
+    where APPLICATION : IApplication
+    {
+        public ISession NetSession { get; set; }
+
+        public SESSION Session { get; set; }
+
+        public APPLICATION Application { get; set; }
+
+        public PipeStream Reader { get; set; }
+
+        public PipeStream Writer { get; set; }
+
+        public void Flush()
+        {
+            NetSession.Stream.Flush();
+        }
+    }
+
+    class MessageProcessHandler<APPLICATION, SESSION, MESSAGE> : IMessageProcessHandler
+         where SESSION : ISessionToken, new()
+    where APPLICATION : IApplication, new()
+    {
+        public Action<EventMessageReceiveArgs<APPLICATION, SESSION, MESSAGE>> Handler { get; set; }
+        public void Execute(object netsession, object application, object session, object message)
+        {
+            EventMessageReceiveArgs<APPLICATION, SESSION, MESSAGE> e = new EventMessageReceiveArgs<APPLICATION, SESSION, MESSAGE>();
+            e.NetSession = (ISession)netsession;
+            e.Application = (APPLICATION)application;
+            e.Session = (SESSION)session;
+            e.Message = (MESSAGE)message;
+            Handler?.Invoke(e);
+        }
+    }
+
+    interface IMessageProcessHandler
+    {
+        void Execute(object netsession, object application, object session, object message);
+    }
+    public class ServerBuilder<APPLICATION, SESSION, Packet> : ServerBuilder<APPLICATION, SESSION>
+    where SESSION : ISessionToken, new()
+    where Packet : IPacket, new()
+    where APPLICATION : IApplication, new()
     {
         protected override IServer CreateServer()
         {
             return SocketFactory.CreateTcpServer(this, new Packet(), this.ServerOptions);
         }
 
-        private System.Collections.Concurrent.ConcurrentDictionary<Type, Delegate> mMessageHandlers = new System.Collections.Concurrent.ConcurrentDictionary<Type, Delegate>();
+        private System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler> mMessageHandlers = new System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler>();
 
-
-        public new ServerBuilder<Packet, Token> SetOptions(Action<ServerOptions> handler)
+        public new ServerBuilder<APPLICATION, SESSION, Packet> SetOptions(Action<ServerOptions> handler)
         {
             handler(this.ServerOptions);
             return this;
         }
 
-        public ServerBuilder<Packet, Token> OnMessageReceive<Message>(Action<ISession, Message, Token> handler)
+        public ServerBuilder<APPLICATION, SESSION, Packet> OnMessageReceive<Message>(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Message>> handler)
         {
-            mMessageHandlers[typeof(Message)] = handler;
+            MessageProcessHandler<APPLICATION, SESSION, Message> e = new MessageProcessHandler<APPLICATION, SESSION, Message>();
+            e.Handler = handler;
+            mMessageHandlers[typeof(Message)] = e;
             return this;
         }
 
-        private Action<ISession, object, Token> onMessageReceive;
+        private Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> onMessageReceive;
 
-        public ServerBuilder<Packet, Token> OnMessageReceive(Action<ISession, object, Token> handler)
+        public ServerBuilder<APPLICATION, SESSION, Packet> OnMessageReceive(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> handler)
         {
             onMessageReceive = handler;
             return this;
         }
-        protected override void OnSessionMessageReceive(ISession session, object message, Token token)
+        protected override void OnSessionMessageReceive(ISession session, object message, SESSION token)
         {
             Type msgtype = message.GetType();
-            if (mMessageHandlers.TryGetValue(msgtype, out Delegate handler))
+            if (mMessageHandlers.TryGetValue(msgtype, out IMessageProcessHandler handler))
             {
-                handler.DynamicInvoke(session, message, token);
+                handler.Execute(session, session.Server.Tag, token, message);
             }
             else
             {
                 if (onMessageReceive != null)
                 {
-                    onMessageReceive(session, message, token);
+                    EventMessageReceiveArgs<APPLICATION, SESSION, Object> e = new EventMessageReceiveArgs<APPLICATION, SESSION, Object>();
+                    e.Application = (APPLICATION)session.Server.Tag;
+                    e.Message = message;
+                    e.NetSession = session;
+                    e.Session = token;
+                    onMessageReceive(e);
                 }
             }
         }
     }
 
-    public class ServerBuilder<Token> : IServerHandler
-        where Token : new()
+    public class ServerBuilder<APPLICATION, SESSION> : IServerHandler
+        where SESSION : ISessionToken, new()
+        where APPLICATION : IApplication, new()
     {
         IServer IServerHandler.Server { get; set; }
 
@@ -65,16 +137,16 @@ namespace BeetleX
 
         public ServerOptions ServerOptions { get; private set; } = new ServerOptions();
 
-        public ServerBuilder<Token> SetOptions(Action<ServerOptions> handler)
+        public ServerBuilder<APPLICATION, SESSION> SetOptions(Action<ServerOptions> handler)
         {
             handler(this.ServerOptions);
             return this;
         }
 
 
-        private Action<ISession, Token> onConnected;
+        private Action<ISession, SESSION> onConnected;
 
-        public ServerBuilder<Token> OnConnected(Action<ISession, Token> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnConnected(Action<ISession, SESSION> handler)
         {
             this.onConnected = handler;
             return this;
@@ -82,13 +154,12 @@ namespace BeetleX
 
         void IServerHandler.Connected(IServer server, ConnectedEventArgs e)
         {
-            e.Session.Tag = new Token();
-            onConnected?.Invoke(e.Session, (Token)e.Session.Tag);
+            onConnected?.Invoke(e.Session, e.Session.Token<SESSION>());
         }
 
         private Action<IServer, ConnectingEventArgs> onConnecting;
 
-        public ServerBuilder<Token> OnConnecting(Action<IServer, ConnectingEventArgs> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnConnecting(Action<IServer, ConnectingEventArgs> handler)
         {
             onConnecting = handler;
             return this;
@@ -99,9 +170,9 @@ namespace BeetleX
             onConnecting?.Invoke(server, e);
         }
 
-        private Action<ISession, Token> onDisconnect;
+        private Action<ISession, SESSION> onDisconnect;
 
-        public ServerBuilder<Token> OnDisconnect(Action<ISession, Token> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnDisconnect(Action<ISession, SESSION> handler)
         {
             this.onDisconnect = handler;
             return this;
@@ -109,14 +180,14 @@ namespace BeetleX
 
         void IServerHandler.Disconnect(IServer server, SessionEventArgs e)
         {
-            this.onDisconnect?.Invoke(e.Session, (Token)e.Session.Tag);
+            this.onDisconnect?.Invoke(e.Session, e.Session.Token<SESSION>());
         }
 
 
         private Action<IServer, ServerErrorEventArgs> onError;
 
 
-        public ServerBuilder<Token> OnError(Action<IServer, ServerErrorEventArgs> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnError(Action<IServer, ServerErrorEventArgs> handler)
         {
             onError = handler;
             return this;
@@ -140,7 +211,7 @@ namespace BeetleX
 
         private Action<IServer, ServerLogEventArgs> onLog;
 
-        public ServerBuilder<Token> OnLog(Action<IServer, ServerLogEventArgs> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnLog(Action<IServer, ServerLogEventArgs> handler)
         {
             onLog = handler;
             return this;
@@ -181,6 +252,10 @@ namespace BeetleX
                 }
                 Console.Write($"[{e.Type.ToString()}] ");
                 Console.ForegroundColor = ConsoleColor.Gray;
+                if (e.Session != null)
+                    Console.Write($"[{e.Session.RemoteEndPoint}] ");
+                else
+                    Console.Write($"[SYSTEM] ");
                 Console.WriteLine(e.Message);
             }
         }
@@ -188,7 +263,7 @@ namespace BeetleX
 
         private Action<IServer> onOpened;
 
-        public ServerBuilder<Token> OnOpened(Action<IServer> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnOpened(Action<IServer> handler)
         {
             onOpened = handler;
             return this;
@@ -210,7 +285,7 @@ namespace BeetleX
                     session.Dispose();
                     if (server.EnableLog(LogType.Info))
                     {
-                        server.Log(LogType.Info, session, "{0} session time out", session.RemoteEndPoint);
+                        server.Log(LogType.Info, session, "{0} disconnect session receive timeout!", session.RemoteEndPoint);
                     }
                 }
             }
@@ -219,10 +294,10 @@ namespace BeetleX
 
         void IServerHandler.SessionPacketDecodeCompleted(IServer server, PacketDecodeCompletedEventArgs e)
         {
-            OnSessionMessageReceive(e.Session, e.Message, (Token)e.Session.Tag);
+            OnSessionMessageReceive(e.Session, e.Message, e.Session.Token<SESSION>());
         }
 
-        protected virtual void OnSessionMessageReceive(ISession session, object message, Token token)
+        protected virtual void OnSessionMessageReceive(ISession session, object message, SESSION token)
         {
 
         }
@@ -234,9 +309,9 @@ namespace BeetleX
         }
 
 
-        private Action<ISession, PipeStream, Token> onStreamReceive;
+        private Action<EventStreamReceiveArgs<APPLICATION, SESSION>> onStreamReceive;
 
-        public ServerBuilder<Token> OnStreamReceive(Action<ISession, PipeStream, Token> handler)
+        public ServerBuilder<APPLICATION, SESSION> OnStreamReceive(Action<EventStreamReceiveArgs<APPLICATION, SESSION>> handler)
         {
             onStreamReceive = handler;
             return this;
@@ -248,9 +323,13 @@ namespace BeetleX
         {
             if (onStreamReceive != null)
             {
-                Token t = (Token)e.Session.Tag;
-                var stream = e.Stream.ToPipeStream();
-                onStreamReceive(e.Session, stream, t);
+                EventStreamReceiveArgs<APPLICATION, SESSION> args = new EventStreamReceiveArgs<APPLICATION, SESSION>();
+                args.Session = e.Session.Token<SESSION>();
+                args.NetSession = e.Session;
+                args.Reader = e.Stream.ToPipeStream();
+                args.Writer = e.Stream.ToPipeStream();
+                args.Application = (APPLICATION)server.Tag;
+                onStreamReceive(args);
             }
         }
 
@@ -261,6 +340,8 @@ namespace BeetleX
             mRunSource = new TaskCompletionSource<IList<ListenHandler>>();
             var server = CreateServer();
             server.Open();
+            server.Tag = new APPLICATION();
+            ((APPLICATION)server.Tag).Init(server);
             return mRunSource.Task;
 
         }

@@ -304,6 +304,7 @@ namespace BeetleX
         }
 
         public Action WriteLogo { get; set; }
+        public object Tag { get; set; }
 
         private System.Collections.Concurrent.ConcurrentDictionary<string, object> mProperties = new ConcurrentDictionary<string, object>();
 

@@ -77,6 +77,10 @@ namespace BeetleX
                 }
                 Console.Write($"[{e.Type.ToString()}] ");
                 Console.ForegroundColor = ConsoleColor.Gray;
+                if (e.Session != null)
+                    Console.Write($"[{e.Session.RemoteEndPoint}] ");
+                else
+                    Console.Write($"[SYSTEM] ");
                 Console.WriteLine(e.Message);
             }
         }

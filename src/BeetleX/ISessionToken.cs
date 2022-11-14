@@ -6,6 +6,6 @@ namespace BeetleX
 {
     public interface ISessionToken : IDisposable
     {
-        void Init(ISession session);
+        void Init(IServer server, ISession session);
     }
 }

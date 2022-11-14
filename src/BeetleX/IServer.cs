@@ -84,6 +84,8 @@ namespace BeetleX
 
         long ReceiveQuantity { get; }
 
+        object Tag { get; set; }
+
         long ReceivBytes
         {
             get;

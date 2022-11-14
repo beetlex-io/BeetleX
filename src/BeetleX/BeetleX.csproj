@@ -5,9 +5,9 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.8.1.6</AssemblyVersion>
-    <FileVersion>1.8.1.6</FileVersion>
-    <Version>1.8.1.6</Version>
+    <AssemblyVersion>1.8.6.1114</AssemblyVersion>
+    <FileVersion>1.8.6.1114</FileVersion>
+    <Version>1.8.6.1114</Version>
     <Description>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</Description>
     <Copyright>Copyright © beetlex-io.com 2019-2022 email: admin@beetlex-io.com or henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/beetlex-io/BeetleX</PackageProjectUrl>

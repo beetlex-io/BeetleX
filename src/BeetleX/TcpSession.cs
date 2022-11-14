@@ -471,7 +471,7 @@ namespace BeetleX
                 if (mToken == null)
                 {
                     mToken = new T();
-                    ((ISessionToken)mToken).Init(this);
+                    ((ISessionToken)mToken).Init(Server, this);
                 }
             }
             return (T)mToken;
