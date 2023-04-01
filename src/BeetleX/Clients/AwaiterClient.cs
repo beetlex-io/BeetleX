@@ -16,6 +16,20 @@ namespace BeetleX.Clients
 
         }
 
+        private Dictionary<string, object> mProperties = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        public object this[string name]
+        {
+            get
+            {
+                mProperties.TryGetValue(name, out object result);
+                return result;
+            }
+            set
+            {
+                mProperties[name] = value;
+            }
+        }
+
         public AwaiterClient(string host, int port, IClientPacket packet, string sslServiceName = null)
         {
             if (sslServiceName == null)
@@ -102,6 +116,7 @@ namespace BeetleX.Clients
         public async Task<object> Receive(bool autoConnect = true)
         {
             TaskCompletionSource<object> resultAwaiter;
+            bool isNewConnection = false;
             if (autoConnect)
             {
                 var result = await mClient.Connect();
@@ -109,8 +124,8 @@ namespace BeetleX.Clients
                 {
                     if (result.NewConnection)
                     {
+                        isNewConnection = true;
                         await Connected?.Invoke(this);
-
                     }
                 }
                 else
@@ -120,7 +135,8 @@ namespace BeetleX.Clients
             }
             lock (mQueues)
             {
-
+                if (isNewConnection)
+                    mQueues.Clear();
                 if (mQueues.Count > 0)
                 {
                     return mQueues.Dequeue();
@@ -135,7 +151,7 @@ namespace BeetleX.Clients
             {
                 var msg = await resultAwaiter.Task;
                 return msg;
-                
+
             }
             return null;
         }
@@ -147,6 +163,8 @@ namespace BeetleX.Clients
             {
                 if (result.NewConnection)
                 {
+                    lock (mQueues)
+                        mQueues.Clear();
                     if (Connected != null)
                         await Connected(this);
                 }
