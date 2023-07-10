@@ -7,7 +7,18 @@ using System.Threading.Tasks;
 
 namespace BeetleX
 {
-    public interface IServer : IDisposable
+    public interface ILoger
+    {
+        void Log(EventArgs.LogType type, ISession session, string message);
+
+        void Log(EventArgs.LogType type, ISession session, string message, params object[] parameters);
+
+        void Error(Exception error, ISession session, string message);
+
+        void Error(Exception error, ISession session, string message, params object[] parameters);
+
+    }
+    public interface IServer : IDisposable,ILoger
     {
 
         int Count
@@ -62,13 +73,8 @@ namespace BeetleX
 
         void UpdateSession(ISession session);
 
-        void Log(EventArgs.LogType type, ISession session, string message);
+        ILoger GetLoger(EventArgs.LogType type);
 
-        void Log(EventArgs.LogType type, ISession session, string message, params object[] parameters);
-
-        void Error(Exception error, ISession session, string message);
-
-        void Error(Exception error, ISession session, string message, params object[] parameters);
 
         void SessionReceive(EventArgs.SessionReceiveEventArgs e);
 

@@ -30,6 +30,15 @@ where APPLICATION : IApplication
         {
             NetSession.Send(message);
         }
+        public ILoger GetLoger(LogType type)
+        {
+            if ((int)(this.NetSession.Server.Options.LogLevel) <= (int)type)
+            {
+                return NetSession.Server;
+
+            }
+            return null;
+        }
     }
 
     public struct EventStreamReceiveArgs<APPLICATION, SESSION>
@@ -46,6 +55,15 @@ where APPLICATION : IApplication
 
         public PipeStream Writer { get; set; }
 
+        public ILoger GetLoger(LogType type)
+        {
+            if ((int)(this.NetSession.Server.Options.LogLevel) <= (int)type)
+            {
+                return NetSession.Server;
+
+            }
+            return null;
+        }
         public void Flush()
         {
             NetSession.Stream.Flush();
@@ -72,66 +90,33 @@ where APPLICATION : IApplication
     {
         void Execute(object netsession, object application, object session, object message);
     }
-    public class ServerBuilder<APPLICATION, SESSION, Packet> : ServerBuilder<APPLICATION, SESSION>
+    public class ServerBuilder<APPLICATION, SESSION, PACKET> : ServerBuilder<APPLICATION, SESSION>
     where SESSION : ISessionToken, new()
-    where Packet : IPacket, new()
+    where PACKET : IPacket, new()
     where APPLICATION : IApplication, new()
     {
         protected override IServer CreateServer()
         {
-            return SocketFactory.CreateTcpServer(this, new Packet(), this.ServerOptions);
+            return SocketFactory.CreateTcpServer(this, new PACKET(), this.ServerOptions);
         }
 
         private System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler> mMessageHandlers = new System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler>();
 
-        public new ServerBuilder<APPLICATION, SESSION, Packet> SetOptions(Action<ServerOptions> handler)
+        public new ServerBuilder<APPLICATION, SESSION, PACKET> SetOptions(Action<ServerOptions> handler)
         {
             handler(this.ServerOptions);
             return this;
         }
 
-        public ServerBuilder<APPLICATION, SESSION, Packet> OnMessageReceive<Message>(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Message>> handler)
-        {
-            MessageProcessHandler<APPLICATION, SESSION, Message> e = new MessageProcessHandler<APPLICATION, SESSION, Message>();
-            e.Handler = handler;
-            mMessageHandlers[typeof(Message)] = e;
-            return this;
-        }
-
-        private Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> onMessageReceive;
-
-        public ServerBuilder<APPLICATION, SESSION, Packet> OnMessageReceive(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> handler)
-        {
-            onMessageReceive = handler;
-            return this;
-        }
-        protected override void OnSessionMessageReceive(ISession session, object message, SESSION token)
-        {
-            Type msgtype = message.GetType();
-            if (mMessageHandlers.TryGetValue(msgtype, out IMessageProcessHandler handler))
-            {
-                handler.Execute(session, session.Server.Tag, token, message);
-            }
-            else
-            {
-                if (onMessageReceive != null)
-                {
-                    EventMessageReceiveArgs<APPLICATION, SESSION, Object> e = new EventMessageReceiveArgs<APPLICATION, SESSION, Object>();
-                    e.Application = (APPLICATION)session.Server.Tag;
-                    e.Message = message;
-                    e.NetSession = session;
-                    e.Session = token;
-                    onMessageReceive(e);
-                }
-            }
-        }
     }
 
-    public class ServerBuilder<APPLICATION, SESSION> : IServerHandler
+    public class ServerBuilder<APPLICATION, SESSION> : IServerHandler, IDisposable
         where SESSION : ISessionToken, new()
         where APPLICATION : IApplication, new()
     {
         IServer IServerHandler.Server { get; set; }
+
+        public IServer AppServer => ((IServerHandler)this).Server;
 
         public bool ConsoleOutputLog { get; set; } = true;
 
@@ -143,8 +128,25 @@ where APPLICATION : IApplication
             return this;
         }
 
+        public virtual ServerBuilder<APPLICATION, SESSION> OnMessageReceive<Message>(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Message>> handler)
+        {
+            MessageProcessHandler<APPLICATION, SESSION, Message> e = new MessageProcessHandler<APPLICATION, SESSION, Message>();
+            e.Handler = handler;
+            mMessageHandlers[typeof(Message)] = e;
+            return this;
+        }
+
+        private Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> onMessageReceive;
+
+        public virtual ServerBuilder<APPLICATION, SESSION> OnMessageReceive(Action<EventMessageReceiveArgs<APPLICATION, SESSION, Object>> handler)
+        {
+            onMessageReceive = handler;
+            return this;
+        }
 
         private Action<ISession, SESSION> onConnected;
+
+        private System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler> mMessageHandlers = new System.Collections.Concurrent.ConcurrentDictionary<Type, IMessageProcessHandler>();
 
         public ServerBuilder<APPLICATION, SESSION> OnConnected(Action<ISession, SESSION> handler)
         {
@@ -299,7 +301,23 @@ where APPLICATION : IApplication
 
         protected virtual void OnSessionMessageReceive(ISession session, object message, SESSION token)
         {
-
+            Type msgtype = message.GetType();
+            if (mMessageHandlers.TryGetValue(msgtype, out IMessageProcessHandler handler))
+            {
+                handler.Execute(session, session.Server.Tag, token, message);
+            }
+            else
+            {
+                if (onMessageReceive != null)
+                {
+                    EventMessageReceiveArgs<APPLICATION, SESSION, Object> e = new EventMessageReceiveArgs<APPLICATION, SESSION, Object>();
+                    e.Application = (APPLICATION)session.Server.Tag;
+                    e.Message = message;
+                    e.NetSession = session;
+                    e.Session = token;
+                    onMessageReceive(e);
+                }
+            }
         }
 
         protected virtual IServer CreateServer()
@@ -338,12 +356,20 @@ where APPLICATION : IApplication
         public Task<IList<ListenHandler>> Run()
         {
             mRunSource = new TaskCompletionSource<IList<ListenHandler>>();
-            var server = CreateServer();
-            server.Open();
-            server.Tag = new APPLICATION();
-            ((APPLICATION)server.Tag).Init(server);
+            mServer = CreateServer();
+            mServer.Open();
+            mServer.Tag = new APPLICATION();
+            ((APPLICATION)mServer.Tag).Init(mServer);
             return mRunSource.Task;
 
+        }
+
+        private IServer mServer;
+
+        public void Dispose()
+        {
+            mServer?.Dispose();
+            mServer = null;
         }
     }
 }

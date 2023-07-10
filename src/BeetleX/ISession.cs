@@ -92,6 +92,8 @@ namespace BeetleX
         T Token<T>()
             where T : ISessionToken, new();
 
+        ILoger GetLoger(EventArgs.LogType type);
+
     }
 
     public enum AuthenticationType : int

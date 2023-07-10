@@ -344,7 +344,7 @@ namespace BeetleX
             logo += " -----------------------------------------------------------------------------\r\n";
             foreach (var item in this.Options.Listens)
             {
-                if(item.Enabled)
+                if (item.Enabled)
                     logo += $" {item}\r\n";
             }
             logo += " -----------------------------------------------------------------------------\r\n";
@@ -412,9 +412,12 @@ namespace BeetleX
             session.ReceiveEventArgs.Completed += IO_Completed;
             session.LittleEndian = Options.LittleEndian;
             session.RemoteEndPoint = e.Socket.RemoteEndPoint;
-            if (this.Packet != null)
+            if (this.Packet != null || e.Listen.Packet != null)
             {
-                session.Packet = this.Packet.Clone();
+                if (e.Listen.Packet != null)
+                    session.Packet = e.Listen.Packet.Clone();
+                else
+                    session.Packet = this.Packet.Clone();
                 session.Packet.Completed = OnPacketDecodeCompleted;
             }
 
@@ -1026,6 +1029,16 @@ namespace BeetleX
             if (handler != null)
                 handler(this.Options);
             return this;
+        }
+
+        public ILoger GetLoger(LogType type)
+        {
+            if ((int)(this.Options.LogLevel) <= (int)type)
+            {
+                return this;
+
+            }
+            return null;
         }
     }
 }

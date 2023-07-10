@@ -9,6 +9,7 @@ namespace BeetleX
     public interface IPacket : IDisposable
     {
 
+        string Name { get; }
         EventHandler<EventArgs.PacketDecodeCompletedEventArgs> Completed
         {
             get; set;

@@ -22,6 +22,8 @@ namespace BeetleX.Packets
 
         protected int CurrentSize => mSize;
 
+        public virtual string Name => "EofBasePacket";
+
         protected abstract object OnRead(ISession session, PipeStream stream);
 
         public void Decode(ISession session, System.IO.Stream stream)
@@ -88,6 +90,8 @@ namespace BeetleX.Packets
 
     public abstract class LineBasePacket : EofBasePacket
     {
+
+        public override string Name => "Line eof";
         public LineBasePacket()
         {
             mEof = Encoding.ASCII.GetBytes("\r\n");
@@ -104,6 +108,8 @@ namespace BeetleX.Packets
         {
             return new StringLinePacket();
         }
+
+        public override string Name => "String line eof";
 
         protected override object OnRead(ISession session, PipeStream stream)
         {

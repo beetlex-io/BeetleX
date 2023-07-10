@@ -37,12 +37,14 @@ namespace BeetleX.Packets
 
         protected int CurrentSize => mSize;
 
+        public virtual string Name => "Fiex header";
+
         protected abstract object OnRead(ISession session, PipeStream stream);
 
         public void Decode(ISession session, System.IO.Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-        START:
+            START:
             object data;
             if (mSize == 0)
             {
@@ -159,7 +161,7 @@ namespace BeetleX.Packets
         public void Decode(IClient client, Stream stream)
         {
             PipeStream pstream = stream.ToPipeStream();
-        START:
+            START:
             object data;
             if (mSize == 0)
             {

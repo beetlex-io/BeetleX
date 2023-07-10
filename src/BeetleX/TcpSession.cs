@@ -8,6 +8,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using BeetleX.Buffers;
+using BeetleX.EventArgs;
 
 namespace BeetleX
 {
@@ -475,6 +476,16 @@ namespace BeetleX
                 }
             }
             return (T)mToken;
+        }
+
+        public ILoger GetLoger(LogType type)
+        {
+            if ((int)(this.Server.Options.LogLevel) <= (int)type)
+            {
+                return this.Server;
+
+            }
+            return null;
         }
     }
 }

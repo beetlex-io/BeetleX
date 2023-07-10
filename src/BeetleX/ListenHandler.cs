@@ -15,6 +15,10 @@ namespace BeetleX
 
         public string Host { get; set; }
 
+        public int? StartRegionPort { get; set; }
+
+        public int? EndRegionPort { get; set; }
+
         public string CertificateFile { get; set; }
 
         public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls11 | SslProtocols.Tls12;
@@ -48,6 +52,8 @@ namespace BeetleX
         private bool mIsDisposed = false;
 
         public Exception Error { get; set; }
+
+        public IPacket Packet { get; set; }
 
         internal void Run(IServer server, Action<AcceptSocketInfo> acceptCallback)
         {
@@ -121,6 +127,12 @@ namespace BeetleX
         {
             try
             {
+                if (StartRegionPort != null)
+                {
+                    Port = StartRegionPort.Value;
+                    if (EndRegionPort == null)
+                        EndRegionPort = StartRegionPort + 100;
+                }
 #if !NETSTANDARD2_0
                 var unixSocket = SocketFactory.GetUnixSocketUrl(Host);
                 if (unixSocket.IsUnixSocket)
@@ -156,7 +168,7 @@ namespace BeetleX
                         address = System.Net.IPAddress.Parse(Host);
                     }
                 }
-
+                NEXT_PORT:
                 var ipaddress = new System.Net.IPEndPoint(address, Port);
                 EndPoint = ipaddress;
                 Socket = new Socket(EndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -168,10 +180,35 @@ namespace BeetleX
                 {
                     Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 }
-                Socket.Bind(EndPoint);
+                try
+                {
+                    Socket.Bind(EndPoint);
+                }
+                catch (SocketException socket_err)
+                {
+                    if (socket_err.SocketErrorCode != SocketError.AddressAlreadyInUse)
+                        throw socket_err;
+                    if (StartRegionPort == null)
+                        throw socket_err;
+                    if (StartRegionPort < EndRegionPort)
+                    {
+
+                        if (Server.EnableLog(EventArgs.LogType.Info))
+                            Server.Log(EventArgs.LogType.Info, null, $"{Host}@{Port} address already in use,continue listen ...");
+                        StartRegionPort++;
+                        Port = StartRegionPort.Value;
+                        Socket?.Dispose();
+                        goto NEXT_PORT;
+                    }
+                    else
+                    {
+                        throw socket_err;
+                    }
+                }
+
                 Socket.Listen(512);
                 if (Server.EnableLog(EventArgs.LogType.Info))
-                    Server.Log(EventArgs.LogType.Info, null, $"listen {Host}@{Port} success ssl:{SSL}");
+                    Server.Log(EventArgs.LogType.Info, null, $"listen {Host}@{Port} success ssl:{SSL}|protocol:{Packet?.Name}");
                 if (SyncAccept)
                 {
                     System.Threading.ThreadPool.QueueUserWorkItem((o) => OnSyncAccept());
@@ -277,10 +314,10 @@ namespace BeetleX
 
         public override string ToString()
         {
-            if(!IsUnixDomainSocket)
-                return $"[ TCP socket]Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
+            if (!IsUnixDomainSocket)
+                return $"[ TCP socket|protocol:{Packet?.Name}]Listen {Host}:{Port}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
             else
-                return $"[Unix socket]Listen {Host}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
+                return $"[Unix socket|protocol:{Packet?.Name}]Listen {Host}\t[SSL:{SSL}]\t[Status:{(Error == null ? "success" : $"error {Error.Message}")}]";
         }
 
         public void Dispose()

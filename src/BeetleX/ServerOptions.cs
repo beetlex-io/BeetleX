@@ -57,13 +57,49 @@ namespace BeetleX
 
         public ListenHandler DefaultListen => Listens[0];
 
+        public ServerOptions DefaultPackeg<PACKET>()
+        where PACKET : IPacket, new()
+        {
+            DefaultListen.Packet = new PACKET();
+            return this;
+        }
+
         public IList<ListenHandler> Listens { get; private set; }
 
         public ServerOptions AddListen(int port)
         {
-            return AddListen(null, port);
+            return AddListen(string.Empty, port);
         }
 
+        public ServerOptions AddListen<PACKET>(int port)
+        where PACKET : IPacket, new()
+        {
+            AddListen(new PACKET(), null, port);
+            return this;
+        }
+        public ServerOptions AddListen<PACKET>(string host, int port)
+        where PACKET : IPacket, new()
+        {
+            AddListen(new PACKET(), host, port);
+            return this;
+        }
+        public ServerOptions AddListen(IPacket packet, int port)
+        {
+            AddListen(packet, null, port);
+            return this;
+        }
+
+        public ServerOptions AddListen(IPacket packet, string host, int port)
+        {
+            ListenHandler listenOptions = new ListenHandler
+            {
+                Host = host,
+                Port = port,
+                Packet = packet
+            };
+            Listens.Add(listenOptions);
+            return this;
+        }
         public ServerOptions AddListen(string host, int port)
         {
             ListenHandler listenOptions = new ListenHandler
@@ -73,6 +109,19 @@ namespace BeetleX
             };
             Listens.Add(listenOptions);
             return this;
+        }
+
+
+        public ServerOptions AddListenSSL<PACKET>(string certificateFile, string password, int port = 443)
+            where PACKET : IPacket, new()
+        {
+            return AddListenSSL(new PACKET(), certificateFile, password, null, null, port);
+        }
+
+        public ServerOptions AddListenSSL<PACKET>(string certificateFile, string password, SslProtocols? sslProtocols, string host, int port = 443)
+            where PACKET : IPacket, new()
+        {
+            return AddListenSSL(new PACKET(), certificateFile, password, sslProtocols, host, port);
         }
 
         public ServerOptions AddListenSSL(string certificateFile, string password, int port = 443)
@@ -87,6 +136,22 @@ namespace BeetleX
                 Host = host,
                 Port = port,
                 SSL = true,
+                CertificateFile = certificateFile,
+                CertificatePassword = password
+            };
+            if (sslProtocols != null)
+                listenOptions.SslProtocols = sslProtocols.Value;
+            Listens.Add(listenOptions);
+            return this;
+        }
+        public ServerOptions AddListenSSL(IPacket packet, string certificateFile, string password, SslProtocols? sslProtocols, string host, int port = 443)
+        {
+            ListenHandler listenOptions = new ListenHandler
+            {
+                Host = host,
+                Port = port,
+                SSL = true,
+                Packet = packet,
                 CertificateFile = certificateFile,
                 CertificatePassword = password
             };
