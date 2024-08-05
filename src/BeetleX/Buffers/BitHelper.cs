@@ -4,8 +4,100 @@ using System.Text;
 
 namespace BeetleX.Buffers
 {
+    public class Int7bit
+    {
+
+        [ThreadStatic]
+        private static Byte[] mInt7BitDataBuffer;
+
+        public void Write(System.IO.Stream stream, int value)
+        {
+
+            if (mInt7BitDataBuffer == null)
+                mInt7BitDataBuffer = new byte[32];
+            var count = 0;
+            var num = (UInt64)value;
+            while (num >= 0x80)
+            {
+                mInt7BitDataBuffer[count++] = (Byte)(num | 0x80);
+                num >>= 7;
+            }
+            mInt7BitDataBuffer[count++] = (Byte)num;
+            stream.Write(mInt7BitDataBuffer, 0, count);
+        }
+
+        private uint mInt7BitResult = 0;
+
+        private byte mInt7Bits = 0;
+
+        public int? Read(System.IO.Stream stream)
+        {
+
+            Byte b;
+            while (true)
+            {
+                if (stream.Length < 1)
+                    return null;
+                var bt = stream.ReadByte();
+                if (bt < 0)
+                {
+                    mInt7Bits = 0;
+                    mInt7BitResult = 0;
+                    throw new BXException("Read 7bit int error:byte value cannot be less than zero!");
+                }
+                b = (Byte)bt;
+
+                mInt7BitResult |= (UInt32)((b & 0x7f) << mInt7Bits);
+                if ((b & 0x80) == 0) break;
+                mInt7Bits += 7;
+                if (mInt7Bits >= 32)
+                {
+                    mInt7Bits = 0;
+                    mInt7BitResult = 0;
+                    throw new BXException("Read 7bit int error:out of maximum value!");
+                }
+            }
+            mInt7Bits = 0;
+            var result = mInt7BitResult;
+            mInt7BitResult = 0;
+            return (Int32)result;
+        }
+    }
     public class BitHelper
     {
+
+
+        public const int BIT_1 = 0b0000_0000_0000_0001;
+
+        public const int BIT_2 = 0b0000_0000_0000_0010;
+
+        public const int BIT_3 = 0b0000_0000_0000_0100;
+
+        public const int BIT_4 = 0b0000_0000_0000_1000;
+
+        public const int BIT_5 = 0b0000_0000_0001_0000;
+
+        public const int BIT_6 = 0b0000_0000_0010_0000;
+
+        public const int BIT_7 = 0b0000_0000_0100_0000;
+
+        public const int BIT_8 = 0b0000_0000_1000_0000;
+
+        public const int BIT_9 = 0b0000_0001_0000_0000;
+
+        public const int BIT_10 = 0b0000_0010_0000_0000;
+
+        public const int BIT_11 = 0b0000_0100_0000_0000;
+
+        public const int BIT_12 = 0b0000_1000_0000_0000;
+
+        public const int BIT_13 = 0b0001_0000_0000_0000;
+
+        public const int BIT_14 = 0b0010_0000_0000_0000;
+
+        public const int BIT_15 = 0b0100_0000_0000_0000;
+
+        public const int BIT_16 = 0b1000_0000_0000_0000;
 
         public static short SwapInt16(short v)
         {

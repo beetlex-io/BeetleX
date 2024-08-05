@@ -1536,5 +1536,62 @@ namespace BeetleX.Buffers
         #endregion
 
 
+        #region int7bit
+        [ThreadStatic]
+        private static Byte[] mInt7BitDataBuffer;
+
+        public void WriteInt7Bit(int value)
+        {
+
+            if (mInt7BitDataBuffer == null)
+                mInt7BitDataBuffer = new byte[32];
+            var count = 0;
+            var num = (UInt64)value;
+            while (num >= 0x80)
+            {
+                mInt7BitDataBuffer[count++] = (Byte)(num | 0x80);
+                num >>= 7;
+            }
+            mInt7BitDataBuffer[count++] = (Byte)num;
+            Write(mInt7BitDataBuffer, 0, count);
+        }
+
+        private uint mInt7BitResult = 0;
+
+        private byte mInt7Bits = 0;
+
+        public int? ReadInt7Bit()
+        {
+
+            Byte b;
+            while (true)
+            {
+                if (Length < 1)
+                    return null;
+                var bt = ReadByte();
+                if (bt < 0)
+                {
+                    mInt7Bits = 0;
+                    mInt7BitResult = 0;
+                    throw new BXException("Read 7bit int error:byte value cannot be less than zero!");
+                }
+                b = (Byte)bt;
+
+                mInt7BitResult |= (UInt32)((b & 0x7f) << mInt7Bits);
+                if ((b & 0x80) == 0) break;
+                mInt7Bits += 7;
+                if (mInt7Bits >= 32)
+                {
+                    mInt7Bits = 0;
+                    mInt7BitResult = 0;
+                    throw new BXException("Read 7bit int error:out of maximum value!");
+                }
+            }
+            mInt7Bits = 0;
+            var result = mInt7BitResult;
+            mInt7BitResult = 0;
+            return (Int32)result;
+        }
+        #endregion
     }
 }

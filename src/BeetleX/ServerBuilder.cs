@@ -118,7 +118,7 @@ where APPLICATION : IApplication
 
         public IServer AppServer => ((IServerHandler)this).Server;
 
-        public bool ConsoleOutputLog { get; set; } = true;
+
 
         public ServerOptions ServerOptions { get; private set; } = new ServerOptions();
 
@@ -219,11 +219,37 @@ where APPLICATION : IApplication
             return this;
         }
 
+        protected virtual void OnWriteLog(IServer server, ServerLogEventArgs e)
+        {
+
+            if (e.Session == null)
+            {
+                ServerOptions.GetLogWriter().Add(null, e.Type, e.Message);
+            }
+            else
+            {
+                var endPoint = e.Session?.RemoteEndPoint?.ToString();
+
+                var localPoint = e.Session?.Socket?.LocalEndPoint?.ToString();
+
+                ServerOptions.GetLogWriter().Add($"{endPoint}/{localPoint}", e.Type, e.Message);
+            }
+
+
+        }
+
         void IServerHandler.Log(IServer server, ServerLogEventArgs e)
         {
-            onLog?.Invoke(server, e);
+            if (onLog != null)
+            {
+                onLog(server, e);
+                return;
+            }
+            if (ServerOptions.WriteLog)
+                OnWriteLog(server, e);
 
-            if (ConsoleOutputLog)
+
+            if (ServerOptions.LogToConsole)
             {
                 OnConsoleOutputLog(server, e);
             }
@@ -233,7 +259,7 @@ where APPLICATION : IApplication
         {
             lock (mLockConsole)
             {
-                Console.Write($"[{ DateTime.Now.ToString("HH:mmm:ss")}] ");
+                Console.Write($"[{DateTime.Now.ToString("HH:mmm:ss")}] ");
                 switch (e.Type)
                 {
                     case LogType.Error:

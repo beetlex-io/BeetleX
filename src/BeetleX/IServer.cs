@@ -18,7 +18,7 @@ namespace BeetleX
         void Error(Exception error, ISession session, string message, params object[] parameters);
 
     }
-    public interface IServer : IDisposable,ILoger
+    public interface IServer : IDisposable, ILoger
     {
 
         int Count
@@ -99,6 +99,9 @@ namespace BeetleX
 
         long SendBytes
         { get; }
+
+        LogWriter GetLogWriter();
+
 
     }
 }

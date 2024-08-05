@@ -211,6 +211,7 @@ namespace BeetleX
                     if (EnableLog(LogType.Info))
                         Log(LogType.Info, null, "detection sessions timeout with {0}s", Options.SessionTimeOut);
                 }
+
             }
         }
 
@@ -325,29 +326,29 @@ namespace BeetleX
         {
             AssemblyCopyrightAttribute productAttr = typeof(BeetleX.BXException).Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>();
             var logo = "\r\n";
-            logo += " -----------------------------------------------------------------------------\r\n";
-            logo +=
-@"          ____                  _     _         __   __
+            logo += " -----------------------------------------------------------------------------------------\r\n";
+            logo +=$@"
+          ____                  _     _         __   __
          |  _ \                | |   | |        \ \ / /
          | |_) |   ___    ___  | |_  | |   ___   \ V / 
          |  _ <   / _ \  / _ \ | __| | |  / _ \   > <  
          | |_) | |  __/ |  __/ | |_  | | |  __/  / . \ 
          |____/   \___|  \___|  \__| |_|  \___| /_/ \_\ 
 
-                                            tcp framework   
+                                            {Options.ApplicationName}   
 
 ";
-            logo += " -----------------------------------------------------------------------------\r\n";
+            logo += " -----------------------------------------------------------------------------------------\r\n";
             logo += $" {productAttr.Copyright}\r\n";
             logo += $" ServerGC [{GCSettings.IsServerGC}]\r\n";
             logo += $" Version  [{typeof(BeetleX.BXException).Assembly.GetName().Version}]\r\n";
-            logo += " -----------------------------------------------------------------------------\r\n";
+            logo += " -----------------------------------------------------------------------------------------\r\n";
             foreach (var item in this.Options.Listens)
             {
                 if (item.Enabled)
                     logo += $" {item}\r\n";
             }
-            logo += " -----------------------------------------------------------------------------\r\n";
+            logo += " -----------------------------------------------------------------------------------------\r\n";
             Log(LogType.Info, null, logo);
         }
 
@@ -493,12 +494,12 @@ namespace BeetleX
 
         private void BeginReceive(ISession session)
         {
-            if (EnableLog(LogType.Info))
-                Log(LogType.Info, session, "begin receive");
+            if (EnableLog(LogType.Debug))
+                Log(LogType.Debug, session, "begin receive");
             if (session.IsDisposed)
             {
-                if (EnableLog(LogType.Info))
-                    Log(LogType.Info, session, $"begin receive cancel connection disposed");
+                if (EnableLog(LogType.Debug))
+                    Log(LogType.Debug, session, $"begin receive cancel connection disposed");
                 return;
             }
             Buffers.Buffer buffer = null;
@@ -535,12 +536,12 @@ namespace BeetleX
             ISession session = ex.Session;
             try
             {
-                if (EnableLog(LogType.Info))
+                if (EnableLog(LogType.Debug))
                     Log(LogType.Info, session, $"receive {e.BytesTransferred} length bytes");
 
                 if (EnableLog(LogType.Trace))
                 {
-                    Log(LogType.Trace, session, $"receive hex:{ BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()}");
+                    Log(LogType.Trace, session, $"receive hex:{BitConverter.ToString(ex.BufferX.Data, 0, e.BytesTransferred).Replace("-", string.Empty).ToLower()}");
                 }
                 if (this.Options.Statistical)
                 {
@@ -1039,6 +1040,11 @@ namespace BeetleX
 
             }
             return null;
+        }
+
+        public LogWriter GetLogWriter()
+        {
+            return Options.GetLogWriter();
         }
     }
 }

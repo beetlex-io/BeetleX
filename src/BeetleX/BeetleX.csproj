@@ -5,22 +5,23 @@
     <Authors>henryfan</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <AssemblyVersion>1.8.9.0707</AssemblyVersion>
-    <FileVersion>1.8.9.0707</FileVersion>
-    <Version>1.8.9.0707</Version>
+    <AssemblyVersion>1.8.24.0435</AssemblyVersion>
+    <FileVersion>1.8.24.0435</FileVersion>
+    <Version>1.8.24.0435</Version>
     <Description>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</Description>
     <Copyright>Copyright © beetlex-io.com 2019-2022 email: admin@beetlex-io.com or henryfan@msn.com</Copyright>
     <PackageProjectUrl>https://github.com/beetlex-io/BeetleX</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
     <Company>beetlex-io.com</Company>
     <LangVersion>7.3</LangVersion>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>False</SignAssembly>
     <AssemblyOriginatorKeyFile>beetlex.pfx</AssemblyOriginatorKeyFile>
     <PackageReleaseNotes>high performance dotnet core socket tcp communication components,  support tcp, ssl, http, websocket, rpc, redis ... protocols and 1M connections problem solution</PackageReleaseNotes>
     <PackageIconUrl></PackageIconUrl>
-    <PackageIcon>beetlex200.png</PackageIcon>
+    <PackageIcon></PackageIcon>
     <PackageId>BeetleX</PackageId>
     <PackageTags></PackageTags>
+    <PackageOutputPath>E:\public</PackageOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -41,10 +42,6 @@
     <Compile Remove="Blocks\**" />
     <EmbeddedResource Remove="Blocks\**" />
     <None Remove="Blocks\**" />
-    <None Include="..\..\..\..\beetlex200.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
   </ItemGroup>
 
   <ItemGroup>

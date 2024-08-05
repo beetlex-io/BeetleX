@@ -34,6 +34,14 @@ namespace BeetleX
 
         }
 
+        public string ApplicationName { get; set; } = "tcp framework";
+
+        public bool WriteLog { get; set; } = false;
+
+        public string LogTag { get; set; } = "beetlex_tcp";
+
+        public bool LogToConsole { get; set; } = true;
+
         public int MaxWaitMessages { get; set; } = 0;
 
         public int IOQueues { get; set; }
@@ -188,6 +196,21 @@ namespace BeetleX
         public bool ExecutionContextEnabled { get; set; }
 
         public int PrivateBufferPoolSize { get; set; } = 1024 * 1024;
+
+        private LogWriter mLogwriter;
+
+        public LogWriter GetLogWriter()
+        {
+            if (mLogwriter == null)
+                lock (this)
+                {
+                    if (mLogwriter == null)
+                    {
+                        mLogwriter = new LogWriter(LogTag);
+                    }
+                }
+            return mLogwriter;
+        }
 
     }
 }

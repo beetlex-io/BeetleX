@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using BeetleX.EventArgs;
 
@@ -43,6 +44,26 @@ namespace BeetleX
             }
         }
 
+
+        protected virtual void WriteLog(IServer server, ServerLogEventArgs e)
+        {
+
+            if (e.Session == null)
+            {
+                server.GetLogWriter().Add(null, e.Type, e.Message);
+            }
+            else
+            {
+                var endPoint = e.Session?.RemoteEndPoint?.ToString();
+
+                var localPoint = e.Session?.Socket?.LocalEndPoint?.ToString();
+
+                server.GetLogWriter().Add($"{endPoint}/{localPoint}", e.Type, e.Message);
+            }
+
+
+        }
+
         public virtual void Log(IServer server, ServerLogEventArgs e)
         {
             OnLogToConsole(server, e);
@@ -56,7 +77,7 @@ namespace BeetleX
         {
             lock (mLockConsole)
             {
-                Console.Write($"[{ DateTime.Now.ToString("HH:mmm:ss")}] ");
+                Console.Write($"[{DateTime.Now.ToString("HH:mmm:ss")}] ");
                 switch (e.Type)
                 {
                     case LogType.Error:
